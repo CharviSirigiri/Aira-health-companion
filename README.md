@@ -1,50 +1,52 @@
-# Welcome to your Expo app 👋
+# AIRA 🚀
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+**AIRA** (AI Health Companion) is a voice-first health companion designed for older adults (such as Susan, 70) with complex medication regimens who face language, visual, or typing barriers. 
 
-## Get started
+AIRA ensures medication safety and clinical review through a unified client-BaaS architecture using Expo and a mock Supabase layer.
 
-1. Install dependencies
+---
 
+## 🌟 Key Features
+
+1. **Voice-First Elder Interface (AIRA)**
+   * Warm, patient, judgment-free voice companion (**AIRA**) speaking in English (default) or Malay.
+   * Large-button medication confirmation (Intake Gate).
+   * Spoken, routine-anchored medication reminders detailing physical pill appearance.
+   * Direct voice querying of past clinical instructions and scheduled appointments.
+   * Passive symptom extraction logged automatically from regular conversation.
+   * Deterministic safety checks triggering distress alerts for red-flag symptoms.
+
+2. **Caregiver Dashboard**
+   * Real-time "She's Okay" presence validation.
+   * OCR prescription photo scanning powered by Gemini with low-confidence warning indicators.
+   * **The Confirmation Gate:** The definitive safety constraint preventing scheduled reminders from activating until the caregiver confirms the OCR readings and enters the authoritative pill physical appearance.
+   * Onboarding routine timeline configurations.
+
+3. **Doctor Portal**
+   * Medication adherence rate calculations.
+   * Delta timelines summarizing passive symptom logs.
+   * Direct note writing and clinic appointment scheduling into Susan's AI memory.
+
+---
+
+## 🛠️ Setup & Running
+
+1. **Install dependencies**
    ```bash
    npm install
    ```
 
-2. Start the app
+2. **Add Gemini API Key (Optional)**
+   The application runs in a robust **Simulation Mode** by default. To connect to the real Google Gemini model for live OCR and speech dialogs, export your Gemini API key in the shell:
+   ```bash
+   # On Windows PowerShell
+   $env:EXPO_PUBLIC_GEMINI_API_KEY="your-gemini-api-key"
+   ```
 
+3. **Start the app**
    ```bash
    npx expo start
    ```
 
-In the output, you'll find options to open the app in a
-
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
-
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Get a fresh project
-
-When you're ready, run:
-
-```bash
-npm run reset-project
-```
-
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
-
-## Learn more
-
-To learn more about developing your project with Expo, look at the following resources:
-
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
-
-## Join the community
-
-Join our community of developers creating universal apps.
-
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+4. **Run on Web**
+   Press **`w`** in the terminal to launch the web dashboard views. Use the floating **Role Switcher** in the bottom-right corner to toggle between the **Elder Screen**, **Caregiver Dashboard**, and **Doctor Portal** instantly.
