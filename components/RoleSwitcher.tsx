@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Modal, Pressable } from 'react-native';
 import { useRouter, usePathname } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { IconSymbol } from './ui/icon-symbol';
 import { useTranslation } from '@/services/localization';
 
@@ -9,6 +10,7 @@ export function RoleSwitcher() {
   const router = useRouter();
   const pathname = usePathname();
   const { t } = useTranslation();
+  const insets = useSafeAreaInsets();
 
   const getRoleName = () => {
     if (pathname.includes('/caregiver')) return t('roleCaregiverTitle');
@@ -30,12 +32,14 @@ export function RoleSwitcher() {
   return (
     <>
       <TouchableOpacity
-        style={styles.floatingButton}
+        style={[styles.floatingButton, { top: insets.top + 10 }]}
         onPress={() => setModalVisible(true)}
-        activeOpacity={0.8}
+        activeOpacity={0.85}
       >
-        <IconSymbol name="person.crop.circle.badge.exclamationmark" size={20} color="#fff" />
-        <Text style={styles.buttonText}>{getRoleName()}</Text>
+        <IconSymbol name="person.crop.circle.badge.exclamationmark" size={18} color="#fff" />
+        <Text style={styles.buttonText} numberOfLines={1}>
+          {getRoleName()}
+        </Text>
       </TouchableOpacity>
 
       <Modal
@@ -53,7 +57,7 @@ export function RoleSwitcher() {
               style={[styles.roleCard, pathname === '/' && styles.activeCard]}
               onPress={() => navigateToRole('elder')}
             >
-              <View style={[styles.iconContainer, { backgroundColor: '#E6F4FE' }]}>
+              <View style={[styles.iconContainer, { backgroundColor: '#E6F4FE' }]}> 
                 <IconSymbol name="house.fill" size={24} color="#0070F3" />
               </View>
               <View style={styles.roleInfo}>
@@ -66,7 +70,7 @@ export function RoleSwitcher() {
               style={[styles.roleCard, pathname.includes('/caregiver') && styles.activeCard]}
               onPress={() => navigateToRole('caregiver')}
             >
-              <View style={[styles.iconContainer, { backgroundColor: '#FDF2F8' }]}>
+              <View style={[styles.iconContainer, { backgroundColor: '#FDF2F8' }]}> 
                 <IconSymbol name="paperplane.fill" size={24} color="#D01C8B" />
               </View>
               <View style={styles.roleInfo}>
@@ -79,7 +83,7 @@ export function RoleSwitcher() {
               style={[styles.roleCard, pathname.includes('/doctor') && styles.activeCard]}
               onPress={() => navigateToRole('doctor')}
             >
-              <View style={[styles.iconContainer, { backgroundColor: '#ECFDF5' }]}>
+              <View style={[styles.iconContainer, { backgroundColor: '#ECFDF5' }]}> 
                 <IconSymbol name="chevron.left.forwardslash.chevron.right" size={24} color="#10B981" />
               </View>
               <View style={styles.roleInfo}>
@@ -104,26 +108,27 @@ export function RoleSwitcher() {
 const styles = StyleSheet.create({
   floatingButton: {
     position: 'absolute',
-    bottom: 24,
-    right: 24,
+    right: 14,
     backgroundColor: '#1E293B',
-    borderRadius: 24,
-    paddingVertical: 10,
-    paddingHorizontal: 16,
+    borderRadius: 999,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
     flexDirection: 'row',
     alignItems: 'center',
+    maxWidth: 220,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.25,
+    shadowOpacity: 0.22,
     shadowRadius: 4.84,
     elevation: 5,
     zIndex: 9999,
   },
   buttonText: {
     color: '#fff',
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '600',
     marginLeft: 8,
+    flexShrink: 1,
   },
   overlay: {
     flex: 1,

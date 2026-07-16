@@ -1,4 +1,5 @@
 import * as Speech from 'expo-speech';
+import { setAudioModeAsync } from 'expo-audio';
 import type { Language } from './localization';
 
 let cachedVoicesPromise: Promise<Speech.Voice[]> | null = null;
@@ -62,10 +63,36 @@ async function resolveCompanionVoice(language: Language): Promise<string | undef
   }
 }
 
+export async function configureVoicePlaybackAudioMode(): Promise<void> {
+  try {
+    await setAudioModeAsync({
+      playsInSilentMode: true,
+      shouldRouteThroughEarpiece: false,
+      interruptionMode: 'duckOthers',
+    });
+  } catch (error) {
+    console.warn('Unable to configure playback audio mode:', error);
+  }
+}
+
+export async function configureVoiceRecordingAudioMode(): Promise<void> {
+  try {
+    await setAudioModeAsync({
+      playsInSilentMode: true,
+      allowsRecording: true,
+      shouldRouteThroughEarpiece: false,
+      interruptionMode: 'doNotMix',
+    });
+  } catch (error) {
+    console.warn('Unable to configure recording audio mode:', error);
+  }
+}
+
 export async function speakCompanionText(text: string, language: Language): Promise<void> {
   if (!text.trim()) return;
 
   await Speech.stop();
+  await configureVoicePlaybackAudioMode();
 
   const voice = await resolveCompanionVoice(language);
   Speech.speak(text, {
@@ -73,5 +100,7 @@ export async function speakCompanionText(text: string, language: Language): Prom
     pitch: 1.0,
     rate: 0.9,
     voice,
+    volume: 1.0,
+    useApplicationAudioSession: false,
   });
 }
