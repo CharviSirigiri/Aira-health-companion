@@ -3,10 +3,13 @@ import { Platform } from 'react-native';
 import {
   AudioModule,
   RecordingPresets,
-  setAudioModeAsync,
   useAudioRecorder,
   useAudioRecorderState,
 } from 'expo-audio';
+import {
+  configureVoicePlaybackAudioMode,
+  configureVoiceRecordingAudioMode,
+} from '@/services/voice';
 
 export interface UseVoiceRecorderResult {
   isSupported: boolean;
@@ -39,10 +42,7 @@ export function useVoiceRecorder(): UseVoiceRecorderResult {
 
         setPermissionGranted(permission.granted);
         if (permission.granted) {
-          await setAudioModeAsync({
-            playsInSilentMode: true,
-            allowsRecording: true,
-          });
+          await configureVoicePlaybackAudioMode();
         } else {
           setLastError('Microphone permission was denied.');
         }
@@ -68,16 +68,19 @@ export function useVoiceRecorder(): UseVoiceRecorderResult {
       throw new Error('Microphone permission is required.');
     }
 
+    await configureVoiceRecordingAudioMode();
     await recorder.prepareToRecordAsync();
     recorder.record();
   };
 
   const stopRecording = async () => {
     if (!recorderState.isRecording) {
+      await configureVoicePlaybackAudioMode();
       return recorder.uri ?? null;
     }
 
     await recorder.stop();
+    await configureVoicePlaybackAudioMode();
     return recorder.uri ?? null;
   };
 

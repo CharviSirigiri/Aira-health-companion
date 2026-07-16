@@ -19,3 +19,5 @@ for: PRD v1-core-locked
 - (open) NEXT candidates: epics & stories from PRD+arch (5-week sprint plan), or start Week-1 spike. OQ-1 (retention) + OQ-2 (MDA) still product/regulatory open.
 - (progress) Voice assistant block completed on 2026-07-16: native audio recording on the elder screen, Gemini audio transcription, on-device speech output via expo-speech, and removal of the old Gemini TTS voice path.
 - (verification) Targeted eslint passed for touched voice files; `npx tsc --noEmit --pretty false` passed after updating the module test harness for text-only replies.
+- (progress) Voice output routing and layout cleanup completed on 2026-07-16: playback is now re-asserted to the loudspeaker route before every spoken response, recording mode is confined to the active mic window, and the role switcher was moved to the safe top-right zone.
+- (verification) `npx eslint` passed for touched files; `npx tsc --noEmit --pretty false` passed after the routing/layout update.
