@@ -277,6 +277,13 @@ export async function updateElder(elder: Elder): Promise<void> {
   if (idx !== -1) {
     db.elders[idx] = elder;
     await saveDatabase(db);
+    
+    try {
+      const { syncScheduledReminders } = require('./reminders');
+      await syncScheduledReminders();
+    } catch (error) {
+      console.error('Failed to sync scheduled reminders after updateElder:', error);
+    }
   }
 }
 
@@ -400,6 +407,13 @@ export async function confirmMedication(medicationId: string, appearance: string
   db.reminders.push(newReminder);
   
   await saveDatabase(db);
+
+  try {
+    const { syncScheduledReminders } = require('./reminders');
+    await syncScheduledReminders();
+  } catch (error) {
+    console.error('Failed to sync scheduled reminders after confirmMedication:', error);
+  }
 }
 
 export async function rejectMedication(medicationId: string): Promise<void> {
@@ -407,6 +421,13 @@ export async function rejectMedication(medicationId: string): Promise<void> {
   db.medications = db.medications.filter(m => m.id !== medicationId);
   db.reminders = db.reminders.filter(r => r.medication_id !== medicationId);
   await saveDatabase(db);
+
+  try {
+    const { syncScheduledReminders } = require('./reminders');
+    await syncScheduledReminders();
+  } catch (error) {
+    console.error('Failed to sync scheduled reminders after rejectMedication:', error);
+  }
 }
 
 export async function addIntakeEvent(event: Omit<IntakeEvent, 'id' | 'at'>): Promise<IntakeEvent> {
