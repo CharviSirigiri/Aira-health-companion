@@ -7,6 +7,7 @@ import { RoleSwitcher } from '@/components/RoleSwitcher';
 import { speakCompanionText } from '@/services/voice';
 import { useTranslation } from '@/services/localization';
 import * as FileSystem from 'expo-file-system/legacy';
+import * as Notifications from 'expo-notifications';
 import {
   getMedications,
   getReminders,
@@ -42,6 +43,7 @@ export default function ElderScreen() {
   // Speech To Text hook linked directly to dynamic localization state
   const stt = useSpeechToText(language === 'ms' ? 'ms-MY' : 'en-US');
   const voiceRecorder = useVoiceRecorder();
+  
   useEffect(() => {
     loadData();
     // Warm greeting on mount/language toggle
@@ -49,6 +51,68 @@ export default function ElderScreen() {
       greetUser();
     }, 1000);
     return () => clearTimeout(timer);
+  }, [language]);
+
+  // Listen for local scheduled notifications
+  useEffect(() => {
+    // 1. Foreground listener
+    const receivedSubscription = Notifications.addNotificationReceivedListener(notification => {
+      const data = notification.request.content.data as any;
+      console.log('Foreground notification received:', data);
+      
+      if (data && data.reminderId) {
+        const reminder: Reminder = {
+          id: data.reminderId,
+          medication_id: data.medicationId,
+          anchor: '', // not strictly needed for rendering banner
+          spoken_text: data.spokenText
+        };
+        
+        // Show banner immediately on screen
+        setActiveReminderToShow(reminder);
+        
+        // Add to active reminders list if not present
+        setActiveReminders(prev => {
+          if (prev.some(r => r.id === reminder.id)) return prev;
+          return [reminder, ...prev];
+        });
+
+        // Speak the reminder immediately
+        void speakOutput(data.spokenText);
+      }
+    });
+
+    // 2. Clicked/tapped listener
+    const responseSubscription = Notifications.addNotificationResponseReceivedListener(response => {
+      const data = response.notification.request.content.data as any;
+      console.log('Notification tapped:', data);
+
+      if (data && data.reminderId) {
+        const reminder: Reminder = {
+          id: data.reminderId,
+          medication_id: data.medicationId,
+          anchor: '',
+          spoken_text: data.spokenText
+        };
+
+        // Show banner immediately on screen
+        setActiveReminderToShow(reminder);
+        
+        // Add to active reminders list if not present
+        setActiveReminders(prev => {
+          if (prev.some(r => r.id === reminder.id)) return prev;
+          return [reminder, ...prev];
+        });
+
+        // Speak the reminder immediately
+        void speakOutput(data.spokenText);
+      }
+    });
+
+    return () => {
+      receivedSubscription.remove();
+      responseSubscription.remove();
+    };
   }, [language]);
 
   // Breathing animation for microphone when listening

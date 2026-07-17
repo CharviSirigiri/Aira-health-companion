@@ -40,15 +40,15 @@ export default function TabTwoScreen() {
         <Collapsible title={t('helpVoiceCommandsTitle')}>
           <View style={styles.commandRow}>
             <IconSymbol name="house.fill" size={16} color="#0D9488" />
-            <ThemedText style={styles.commandText}>"{t('helpVoiceCmd1')}"</ThemedText>
+            <ThemedText style={styles.commandText}>{`"${t('helpVoiceCmd1')}"`}</ThemedText>
           </View>
           <View style={styles.commandRow}>
             <IconSymbol name="house.fill" size={16} color="#0D9488" />
-            <ThemedText style={styles.commandText}>"{t('helpVoiceCmd2')}"</ThemedText>
+            <ThemedText style={styles.commandText}>{`"${t('helpVoiceCmd2')}"`}</ThemedText>
           </View>
           <View style={styles.commandRow}>
             <IconSymbol name="house.fill" size={16} color="#0D9488" />
-            <ThemedText style={styles.commandText}>"{t('helpVoiceCmd3')}"</ThemedText>
+            <ThemedText style={styles.commandText}>{`"${t('helpVoiceCmd3')}"`}</ThemedText>
           </View>
         </Collapsible>
 
