@@ -6,7 +6,7 @@ import { IconSymbol } from '@/components/ui/icon-symbol';
 import { RoleSwitcher } from '@/components/RoleSwitcher';
 import { speakCompanionText } from '@/services/voice';
 import { useTranslation } from '@/services/localization';
-import * as FileSystem from 'expo-file-system/legacy';
+import * as FileSystem from 'expo-file-system';
 import * as Notifications from 'expo-notifications';
 import {
   getMedications,
