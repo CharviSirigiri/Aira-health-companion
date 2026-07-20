@@ -1,6 +1,7 @@
 import * as Speech from 'expo-speech';
 import { setAudioModeAsync } from 'expo-audio';
 import type { Language } from './localization';
+import { getElder } from './database';
 
 let cachedVoicesPromise: Promise<Speech.Voice[]> | null = null;
 
@@ -36,6 +37,10 @@ function scoreVoiceCandidate(voice: Speech.Voice, language: Language): number {
 
   if (voice.quality === 'Enhanced') {
     score += 20;
+  }
+
+  if (voiceName.includes('google')) {
+    score += 15;
   }
 
   if (language === 'ms' && (voiceName.includes('bahasa') || voiceName.includes('malay'))) {
@@ -94,11 +99,33 @@ export async function speakCompanionText(text: string, language: Language): Prom
   await Speech.stop();
   await configureVoicePlaybackAudioMode();
 
+  let pitch = 1.0;
+  let rate = 0.85; // Default slightly slower rate for senior comprehension
+
+  try {
+    const elder = await getElder('elder-susan');
+    if (elder && elder.persona) {
+      const persona = elder.persona.toLowerCase();
+      if (persona === 'warm') {
+        pitch = 0.95;
+        rate = 0.85;
+      } else if (persona === 'patient') {
+        pitch = 1.0;
+        rate = 0.75;
+      } else if (persona === 'friendly') {
+        pitch = 1.05;
+        rate = 0.9;
+      }
+    }
+  } catch (error) {
+    console.warn('Failed to load elder persona for voice adjustments:', error);
+  }
+
   const voice = await resolveCompanionVoice(language);
   Speech.speak(text, {
     language: getSpeechLanguageCode(language),
-    pitch: 1.0,
-    rate: 0.9,
+    pitch,
+    rate,
     voice,
     volume: 1.0,
     useApplicationAudioSession: false,

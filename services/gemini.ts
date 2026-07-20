@@ -1,13 +1,13 @@
 import { Medication, Memory, HealthLog } from './database';
 
-const GEMINI_OCR_MODEL_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent';
+const GEMINI_OCR_MODEL_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent';
 
 // Helper to get API key from environment
 function getGeminiApiKey(): string | null {
   // Check if standard expo environment variable exists
   if (typeof process !== 'undefined' && process.env) {
     if (process.env.EXPO_PUBLIC_GEMINI_API_KEY) {
-      return process.env.EXPO_PUBLIC_GEMINI_API_KEY;
+      return process.env.EXPO_PUBLIC_GEMINI_API_KEY.trim();
     }
   }
   return null;

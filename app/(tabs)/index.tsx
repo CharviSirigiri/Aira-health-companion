@@ -192,7 +192,7 @@ export default function ElderScreen() {
 
     try {
       const audioBase64 = await FileSystem.readAsStringAsync(audioUri, { encoding: 'base64' });
-      const mimeType = audioUri.toLowerCase().endsWith('.webm') ? 'audio/webm' : 'audio/m4a';
+      const mimeType = audioUri.toLowerCase().endsWith('.webm') ? 'audio/webm' : 'audio/mp4';
       const { transcript } = await transcribeVoiceMessage(audioBase64, mimeType, language);
       const cleanTranscript = transcript.trim();
 
