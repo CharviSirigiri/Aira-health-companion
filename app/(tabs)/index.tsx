@@ -4,6 +4,7 @@ import { useSpeechToText } from '@/hooks/useSpeechToText';
 import { useVoiceRecorder } from '@/hooks/useVoiceRecorder';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { RoleSwitcher } from '@/components/RoleSwitcher';
+import { Shadows, Radii } from '@/constants/theme';
 import { speakCompanionText } from '@/services/voice';
 import { useTranslation } from '@/services/localization';
 import * as FileSystem from 'expo-file-system';
@@ -348,20 +349,24 @@ export default function ElderScreen() {
           <Text style={styles.headerTitle}>{t('appName')}</Text>
         </View>
 
-        <TouchableOpacity style={styles.langToggle} onPress={toggleLanguage}>
-          <IconSymbol name="paperplane.fill" size={14} color="#0D9488" />
-          <Text style={styles.langToggleText}>
-            {language === 'ms' ? t('langToggleMs') : t('langToggleEn')}
-          </Text>
-        </TouchableOpacity>
+        <View style={styles.headerActions}>
+          <TouchableOpacity style={styles.langToggle} onPress={toggleLanguage}>
+            <IconSymbol name="paperplane.fill" size={14} color="#0D9488" />
+            <Text style={styles.langToggleText}>
+              {language === 'ms' ? t('langToggleMs') : t('langToggleEn')}
+            </Text>
+          </TouchableOpacity>
+          <RoleSwitcher style={styles.headerRoleSwitcher} />
+        </View>
       </View>
 
-      <ScrollView contentContainerStyle={styles.contentScroll} keyboardShouldPersistTaps="handled">
-        {/* Reminder notification Banner (FR13 / FR14) */}
+      {/* Spacious Non-Overlapping Scroll Content Area */}
+      <ScrollView style={styles.scrollArea} contentContainerStyle={styles.contentScroll} keyboardShouldPersistTaps="handled">
+        {/* Active Reminder notification Banner (FR13 / FR14) */}
         {activeReminderToShow && (
           <View style={styles.reminderBanner}>
             <View style={styles.reminderHeader}>
-              <IconSymbol name="person.crop.circle.badge.exclamationmark" size={24} color="#B91C1C" />
+              <IconSymbol name="person.crop.circle.badge.exclamationmark" size={20} color="#B91C1C" />
               <Text style={styles.reminderTitle}>
                 {t('elderReminderTitle')}
               </Text>
@@ -373,7 +378,7 @@ export default function ElderScreen() {
                 style={styles.confirmIntakeBtn}
                 onPress={() => handleIntakeConfirm(activeReminderToShow)}
               >
-                <IconSymbol name="house.fill" size={22} color="#fff" />
+                <IconSymbol name="house.fill" size={18} color="#fff" />
                 <Text style={styles.confirmIntakeText}>
                   {t('elderReminderButton')}
                 </Text>
@@ -383,132 +388,109 @@ export default function ElderScreen() {
                 style={styles.speakReminderBtn}
                 onPress={() => void speakOutput(activeReminderToShow.spoken_text)}
               >
-                <IconSymbol name="person.crop.circle.badge.exclamationmark" size={20} color="#B91C1C" />
+                <IconSymbol name="person.crop.circle.badge.exclamationmark" size={18} color="#B91C1C" />
               </TouchableOpacity>
             </View>
           </View>
         )}
 
-        {/* AI Reply Bubble and status indicator */}
+        {/* Hero AIRA Voice Companion Section */}
         <View style={styles.chatSection}>
-          <Text style={styles.companionLabel}>
-            {t('elderCompanionLabel')}
-          </Text>
+          <View style={styles.companionHeaderRow}>
+            <View style={styles.companionAvatarContainer}>
+              <Animated.View style={[styles.companionAvatarRing, { transform: [{ scale: pulseAnim }] }]} />
+              <View style={styles.companionAvatarCore}>
+                <IconSymbol name="house.fill" size={18} color="#FFFFFF" />
+              </View>
+            </View>
+            <View style={styles.companionMeta}>
+              <Text style={styles.companionLabel}>
+                {t('elderCompanionLabel')}
+              </Text>
+              <View style={styles.activeStatusPill}>
+                <View style={styles.activeStatusDot} />
+                <Text style={styles.activeStatusText}>
+                  {isAiLoading ? 'AI Thinking...' : stt.isListening ? 'Listening...' : 'Voice Ready'}
+                </Text>
+              </View>
+            </View>
+          </View>
+
           <View style={styles.replyBox}>
             <Text style={styles.replyText}>{statusText}</Text>
             {isAiLoading && (
-              <Text style={styles.loadingPulse}>
-                {t('elderThinking')}
-              </Text>
+              <View style={styles.loadingRow}>
+                <View style={styles.loadingDot} />
+                <Text style={styles.loadingPulse}>
+                  {t('elderThinking')}
+                </Text>
+              </View>
             )}
           </View>
         </View>
 
         {/* Voice Transcript Feedback */}
         {(stt.isListening || voiceRecorder.isRecording || isTranscribing) && (
-          <View>
-            <View style={styles.transcriptContainer}>
-              <Text style={styles.transcriptHeading}>
-                {language === 'ms' ? t('elderListening') : t('elderListening')}
-              </Text>
-              <Text style={styles.transcriptText}>
-                {stt.isListening
-                  ? (stt.transcript || t('elderSpeakNow'))
-                  : voiceRecorder.isRecording
-                    ? (language === 'ms' ? 'Saya sedang mendengar suara anda...' : 'I am listening to your voice...')
-                    : (language === 'ms' ? 'Sedang menyalin suara anda...' : 'Transcribing your voice...')}
-              </Text>
-            </View>
-
-            {/* Quick Speech Suggestion Bubbles */}
-            <View style={styles.suggestionsContainer}>
-              <Text style={styles.suggestionsTitle}>
-                {language === 'ms' ? 'Sentuh contoh arahan suara:' : 'Tap a sample voice command:'}
-              </Text>
-              <View style={styles.suggestionsGrid}>
-                <TouchableOpacity
-                  style={styles.suggestionBubble}
-                  onPress={() => {
-                    stt.stopListening();
-                    handleUserSpeech(language === 'ms' ? 'Adakah saya sudah makan ubat Metformin hari ini?' : 'Did I take my Metformin today?');
-                  }}
-                >
-                  <Text style={styles.suggestionText}>
-                    💊 {language === 'ms' ? 'Sudahkah saya makan ubat?' : 'Did I take my medicine?'}
-                  </Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={styles.suggestionBubble}
-                  onPress={() => {
-                    stt.stopListening();
-                    handleUserSpeech(language === 'ms' ? 'Apa pesanan doktor Ramesh?' : 'What did Doctor Ramesh say?');
-                  }}
-                >
-                  <Text style={styles.suggestionText}>
-                    🩺 {language === 'ms' ? 'Apa pesanan doktor?' : 'What did the doctor say?'}
-                  </Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={styles.suggestionBubble}
-                  onPress={() => {
-                    stt.stopListening();
-                    handleUserSpeech(language === 'ms' ? 'Bilakah temujanji saya yang seterusnya?' : 'When is my next appointment?');
-                  }}
-                >
-                  <Text style={styles.suggestionText}>
-                    📅 {language === 'ms' ? 'Bila temujanji seterusnya?' : 'When is next appointment?'}
-                  </Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={styles.suggestionBubble}
-                  onPress={() => {
-                    stt.stopListening();
-                    handleUserSpeech(language === 'ms' ? 'Saya rasa pening kepala hari ini' : 'I feel dizzy today');
-                  }}
-                >
-                  <Text style={styles.suggestionText}>
-                    🤢 {language === 'ms' ? 'Saya rasa pening kepala' : 'I feel dizzy'}
-                  </Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={[styles.suggestionBubble, { borderColor: '#FCA5A5', backgroundColor: '#FEF2F2' }]}
-                  onPress={() => {
-                    stt.stopListening();
-                    handleUserSpeech(language === 'ms' ? 'Tolong hubungi keluarga saya sekarang!' : 'Please contact my family now!');
-                  }}
-                >
-                  <Text style={[styles.suggestionText, { color: '#991B1B' }]}>
-                    🚨 {language === 'ms' ? 'Tolong hubungi keluarga!' : 'Contact family!'}
-                  </Text>
-                </TouchableOpacity>
-              </View>
-            </View>
+          <View style={styles.transcriptContainer}>
+            <Text style={styles.transcriptHeading}>
+              {language === 'ms' ? t('elderListening') : t('elderListening')}
+            </Text>
+            <Text style={styles.transcriptText}>
+              {stt.isListening
+                ? (stt.transcript || t('elderSpeakNow'))
+                : voiceRecorder.isRecording
+                  ? (language === 'ms' ? 'Saya sedang mendengar suara anda...' : 'I am listening to your voice...')
+                  : (language === 'ms' ? 'Sedang menyalin suara anda...' : 'Transcribing your voice...')}
+            </Text>
           </View>
         )}
 
-        {/* Conversation Log preview */}
-        <View style={styles.logCard}>
-          <Text style={styles.logCardTitle}>
-            {t('elderTodayConversation')}
+        {/* Quick Speech Suggestion Bubbles (1-Tap Accessible Actions) */}
+        <View style={styles.suggestionsContainer}>
+          <Text style={styles.suggestionsTitle}>
+            {language === 'ms' ? 'Contoh soalan (sentuh 1 kali):' : 'Quick voice commands (1 tap):'}
           </Text>
-          {messages.slice(-3).map((msg, index) => (
-            <View key={index} style={styles.logMessageRow}>
-              <Text style={styles.logRoleText}>
-                {msg.role === 'user' ? 'Susan: ' : 'AI: '}
+          <View style={styles.suggestionsGrid}>
+            <TouchableOpacity
+              style={styles.suggestionBubble}
+              onPress={() => {
+                stt.stopListening();
+                handleUserSpeech(language === 'ms' ? 'Adakah saya sudah makan ubat Metformin hari ini?' : 'Did I take my Metformin today?');
+              }}
+            >
+              <Text style={styles.suggestionText}>
+                💊 {language === 'ms' ? 'Sudah makan ubat?' : 'Did I take meds?'}
               </Text>
-              <Text style={styles.logMessageText} numberOfLines={2}>
-                {msg.text}
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.suggestionBubble}
+              onPress={() => {
+                stt.stopListening();
+                handleUserSpeech(language === 'ms' ? 'Apa pesanan doktor Ramesh?' : 'What did Doctor Ramesh say?');
+              }}
+            >
+              <Text style={styles.suggestionText}>
+                🩺 {language === 'ms' ? 'Pesanan doktor?' : 'Doctor notes'}
               </Text>
-            </View>
-          ))}
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.suggestionBubble, { borderColor: '#FCA5A5', backgroundColor: '#FEF2F2' }]}
+              onPress={() => {
+                stt.stopListening();
+                handleUserSpeech(language === 'ms' ? 'Tolong hubungi keluarga saya sekarang!' : 'Please contact my family now!');
+              }}
+            >
+              <Text style={[styles.suggestionText, { color: '#991B1B' }]}>
+                🚨 {language === 'ms' ? 'Hubungi keluarga!' : 'Contact family'}
+              </Text>
+            </TouchableOpacity>
+          </View>
         </View>
       </ScrollView>
 
-      {/* Voice Control Pad */}
+      {/* Voice Control Pad (Fixed Bottom) */}
       <View style={styles.controlPad}>
         {/* Typed fallback for offline/web/dry runs */}
         <View style={styles.simInputContainer}>
@@ -550,9 +532,6 @@ export default function ElderScreen() {
               : t('elderMicPressToSpeak')}
         </Text>
       </View>
-
-      {/* Persistent global switcher */}
-      <RoleSwitcher />
     </Animated.View>
   );
 }
@@ -560,109 +539,125 @@ export default function ElderScreen() {
 const styles = StyleSheet.create({
   mainContainer: {
     flex: 1,
-    backgroundColor: '#F0F9FF', // Calming light sky-blue background
+    backgroundColor: '#F8FAFC', // Off-white canvas (eliminates eye fatigue for older eyes)
   },
   header: {
-    paddingTop: 50,
-    paddingHorizontal: 20,
-    paddingBottom: 16,
-    backgroundColor: '#fff',
-    borderBottomWidth: 1,
+    paddingTop: Platform.OS === 'ios' ? 54 : 44,
+    paddingHorizontal: 24,
+    paddingBottom: 18,
+    backgroundColor: '#FFFFFF', // Pure White header container
+    borderBottomWidth: 1.5,
     borderBottomColor: '#E2E8F0',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    ...Shadows.sm,
   },
   branding: {
     flexDirection: 'row',
     alignItems: 'center',
   },
   logoIcon: {
-    width: 32,
-    height: 32,
-    borderRadius: 8,
+    width: 40,
+    height: 40,
+    borderRadius: Radii.md,
     backgroundColor: '#CCFBF1',
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 10,
+    marginRight: 12,
   },
   headerTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#0F172A',
+    fontSize: 22,
+    fontWeight: '800',
+    color: '#0F172A', // Deep Navy text (High Contrast)
+    letterSpacing: -0.3,
+  },
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  headerRoleSwitcher: {
+    position: 'relative',
+    top: 0,
+    right: 0,
+    maxWidth: 160,
   },
   langToggle: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#E6F4FE',
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    borderRadius: 20,
+    backgroundColor: '#CCFBF1',
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    borderRadius: Radii.full,
+    borderWidth: 1.5,
+    borderColor: '#99F6E4',
   },
   langToggleText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#0D9488',
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#0D9488', // Safety Teal
     marginLeft: 6,
+  },
+  scrollArea: {
+    flex: 1,
   },
   contentScroll: {
     padding: 16,
-    paddingBottom: 220,
+    paddingBottom: 24,
   },
   reminderBanner: {
     backgroundColor: '#FEF2F2',
     borderWidth: 1.5,
     borderColor: '#FCA5A5',
-    borderRadius: 20,
-    padding: 20,
-    marginBottom: 20,
-    shadowColor: '#B91C1C',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 6,
-    elevation: 2,
+    borderRadius: Radii.md,
+    padding: 14,
+    marginBottom: 14,
+    ...Shadows.sm,
   },
   reminderHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: 6,
   },
   reminderTitle: {
     fontSize: 16,
-    fontWeight: '700',
+    fontWeight: '800',
     color: '#991B1B',
     marginLeft: 8,
   },
   reminderBody: {
-    fontSize: 15,
+    fontSize: 14,
     color: '#7F1D1D',
-    lineHeight: 22,
-    marginBottom: 16,
+    lineHeight: 20,
+    fontWeight: '600',
+    marginBottom: 12,
   },
   reminderActions: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: 10,
   },
   confirmIntakeBtn: {
     flex: 1,
-    backgroundColor: '#16A34A',
-    borderRadius: 16,
-    paddingVertical: 14,
+    backgroundColor: '#EA580C', // Warm Coral/Orange Action Alert Accent
+    borderRadius: Radii.md,
+    paddingVertical: 12,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+    ...Shadows.sm,
   },
   confirmIntakeText: {
-    color: '#fff',
+    color: '#FFFFFF',
     fontSize: 15,
-    fontWeight: '700',
-    marginLeft: 10,
+    fontWeight: '800',
+    marginLeft: 8,
   },
   speakReminderBtn: {
-    width: 48,
-    height: 48,
-    borderRadius: 16,
+    width: 44,
+    height: 44,
+    borderRadius: Radii.md,
     backgroundColor: '#FEE2E2',
     borderWidth: 1.5,
     borderColor: '#FCA5A5',
@@ -670,125 +665,197 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   chatSection: {
-    marginBottom: 20,
+    marginBottom: 16,
+  },
+  companionHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  companionAvatarContainer: {
+    position: 'relative',
+    width: 42,
+    height: 42,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 10,
+  },
+  companionAvatarRing: {
+    position: 'absolute',
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#CCFBF1',
+    opacity: 0.7,
+  },
+  companionAvatarCore: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: '#0D9488', // Safety Teal Accent
+    justifyContent: 'center',
+    alignItems: 'center',
+    ...Shadows.sm,
+  },
+  companionMeta: {
+    flex: 1,
   },
   companionLabel: {
     fontSize: 13,
-    fontWeight: '600',
+    fontWeight: '800',
     color: '#0D9488',
-    marginBottom: 8,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
-  replyBox: {
-    backgroundColor: '#fff',
-    borderRadius: 24,
-    padding: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 1,
+  activeStatusPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#CCFBF1',
+    paddingVertical: 2,
+    paddingHorizontal: 8,
+    borderRadius: Radii.full,
+    alignSelf: 'flex-start',
+    marginTop: 2,
     borderWidth: 1,
+    borderColor: '#99F6E4',
+  },
+  activeStatusDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#0D9488',
+    marginRight: 4,
+  },
+  activeStatusText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#0F766E',
+  },
+  replyBox: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: Radii.lg,
+    padding: 16,
+    borderWidth: 1.5,
     borderColor: '#E2E8F0',
+    ...Shadows.sm,
   },
   replyText: {
-    fontSize: 17,
-    color: '#1E293B',
-    lineHeight: 25,
-    fontWeight: '500',
+    fontSize: 16,
+    color: '#0F172A', // Deep Navy
+    lineHeight: 24,
+    fontWeight: '600',
+  },
+  loadingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 10,
+  },
+  loadingDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#0D9488',
+    marginRight: 6,
   },
   loadingPulse: {
-    marginTop: 8,
-    fontSize: 12,
+    fontSize: 13,
     color: '#0D9488',
+    fontWeight: '700',
     fontStyle: 'italic',
   },
   transcriptContainer: {
-    backgroundColor: '#E0F2FE',
-    borderWidth: 1,
-    borderColor: '#BAE6FD',
-    borderRadius: 16,
-    padding: 14,
-    marginBottom: 20,
+    backgroundColor: '#EFF6FF',
+    borderWidth: 1.5,
+    borderColor: '#BFDBFE',
+    borderRadius: Radii.md,
+    padding: 12,
+    marginBottom: 14,
   },
   transcriptHeading: {
     fontSize: 11,
-    fontWeight: '700',
-    color: '#0369A1',
+    fontWeight: '800',
+    color: '#1D4ED8',
     textTransform: 'uppercase',
+    letterSpacing: 0.5,
     marginBottom: 4,
   },
   transcriptText: {
     fontSize: 14,
-    color: '#0C4A6E',
+    color: '#1E40AF',
+    fontWeight: '600',
     fontStyle: 'italic',
   },
-  logCard: {
-    backgroundColor: '#fff',
-    borderRadius: 16,
-    padding: 16,
-    borderWidth: 1,
+  suggestionsContainer: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: Radii.lg,
+    padding: 14,
+    borderWidth: 1.5,
     borderColor: '#E2E8F0',
+    marginBottom: 14,
+    ...Shadows.sm,
   },
-  logCardTitle: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#64748B',
-    marginBottom: 10,
-  },
-  logMessageRow: {
-    flexDirection: 'row',
+  suggestionsTitle: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#0D9488',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
     marginBottom: 8,
-    alignItems: 'flex-start',
   },
-  logRoleText: {
+  suggestionsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  suggestionBubble: {
+    backgroundColor: '#CCFBF1',
+    borderWidth: 1,
+    borderColor: '#99F6E4',
+    borderRadius: Radii.full,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    alignItems: 'center',
+  },
+  suggestionText: {
     fontSize: 13,
+    color: '#0F766E',
     fontWeight: '700',
-    color: '#475569',
-  },
-  logMessageText: {
-    flex: 1,
-    fontSize: 13,
-    color: '#475569',
   },
   controlPad: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    backgroundColor: '#fff',
-    borderTopLeftRadius: 32,
-    borderTopRightRadius: 32,
-    paddingTop: 16,
-    paddingHorizontal: 24,
-    paddingBottom: 36,
+    position: 'relative',
+    backgroundColor: '#FFFFFF',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingTop: 12,
+    paddingHorizontal: 16,
+    paddingBottom: Platform.OS === 'ios' ? 24 : 14,
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: -10 },
-    shadowOpacity: 0.08,
-    shadowRadius: 10,
-    elevation: 10,
+    borderTopWidth: 1.5,
+    borderColor: '#E2E8F0',
+    ...Shadows.md,
   },
   simInputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F1F5F9',
-    borderRadius: 20,
-    paddingHorizontal: 16,
-    height: 48,
+    backgroundColor: '#F8FAFC',
+    borderRadius: Radii.full,
+    paddingHorizontal: 14,
+    height: 42,
     width: '100%',
-    marginBottom: 16,
+    marginBottom: 10,
+    borderWidth: 1.5,
+    borderColor: '#CBD5E1',
   },
   simTextInput: {
     flex: 1,
     fontSize: 14,
-    color: '#1F2937',
+    color: '#0F172A',
+    fontWeight: '600',
   },
   sendTextBtn: {
     width: 32,
     height: 32,
-    borderRadius: 10,
+    borderRadius: Radii.full,
     backgroundColor: '#0D9488',
     justifyContent: 'center',
     alignItems: 'center',
@@ -797,72 +864,37 @@ const styles = StyleSheet.create({
     position: 'relative',
     justifyContent: 'center',
     alignItems: 'center',
-    width: 80,
-    height: 80,
+    width: 60,
+    height: 60,
   },
   pulseCircle: {
     position: 'absolute',
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: 'rgba(13, 148, 136, 0.25)',
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: 'rgba(13, 148, 136, 0.22)',
   },
   micBtn: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: '#0D9488',
+    width: 54,
+    height: 54,
+    borderRadius: 27,
+    backgroundColor: '#0D9488', // Safety Teal
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: '#0D9488',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 6,
-    elevation: 5,
+    borderWidth: 2.5,
+    borderColor: '#CCFBF1',
+    ...Shadows.sm,
   },
   micBtnActive: {
-    backgroundColor: '#EF4444',
-    shadowColor: '#EF4444',
+    backgroundColor: '#EA580C', // Warm Coral/Orange
+    borderColor: '#FFEDD5',
   },
   micInstruction: {
     fontSize: 12,
-    color: '#64748B',
-    marginTop: 10,
-    fontWeight: '600',
-  },
-  suggestionsContainer: {
-    backgroundColor: '#fff',
-    borderRadius: 20,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    marginBottom: 20,
-  },
-  suggestionsTitle: {
-    fontSize: 12,
+    color: '#475569',
+    marginTop: 6,
     fontWeight: '700',
-    color: '#0D9488',
-    textTransform: 'uppercase',
-    marginBottom: 10,
-  },
-  suggestionsGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-  },
-  suggestionBubble: {
-    backgroundColor: '#F0F9FF',
-    borderWidth: 1.5,
-    borderColor: '#BAE6FD',
-    borderRadius: 20,
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    alignItems: 'center',
-  },
-  suggestionText: {
-    fontSize: 13,
-    color: '#0369A1',
-    fontWeight: '600',
+    letterSpacing: 0.2,
   },
 });
 

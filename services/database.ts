@@ -1,7 +1,6 @@
-import * as FileSystem from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy';
 import { Platform } from 'react-native';
 
-// eslint-disable-next-line import/namespace
 const DB_FILE_PATH = (FileSystem.documentDirectory || '') + 'health_companion_db.json';
 
 export interface Elder {
@@ -280,7 +279,6 @@ export async function updateElder(elder: Elder): Promise<void> {
     await saveDatabase(db);
     
     try {
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
       const { syncScheduledReminders } = require('./reminders');
       await syncScheduledReminders();
     } catch (error) {
@@ -303,7 +301,7 @@ export async function addPrescription(prescription: Omit<Prescription, 'id' | 'c
   const db = await loadDatabase();
   const newPrescription: Prescription = {
     ...prescription,
-    id: `pres-${Math.random().toString(36).slice(2, 11)}`,
+    id: `pres-${Math.random().toString(36).substr(2, 9)}`,
     created_at: new Date().toISOString()
   };
   db.prescriptions.push(newPrescription);
@@ -315,7 +313,7 @@ export async function addMedication(med: Omit<Medication, 'id' | 'confirmed'> & 
   const db = await loadDatabase();
   const newMed: Medication = {
     ...med,
-    id: `med-${Math.random().toString(36).slice(2, 11)}`,
+    id: `med-${Math.random().toString(36).substr(2, 9)}`,
     confirmed: med.confirmed ?? false
   };
   db.medications.push(newMed);
@@ -345,7 +343,7 @@ export async function addReminder(reminder: Omit<Reminder, 'id'>): Promise<Remin
 
   const newReminder: Reminder = {
     ...reminder,
-    id: `rem-${Math.random().toString(36).slice(2, 11)}`
+    id: `rem-${Math.random().toString(36).substr(2, 9)}`
   };
   db.reminders.push(newReminder);
   await saveDatabase(db);
@@ -401,7 +399,7 @@ export async function confirmMedication(medicationId: string, appearance: string
   
   // Create reminder under safety constraint (verified confirmed = true in DB)
   const newReminder: Reminder = {
-    id: `rem-${Math.random().toString(36).slice(2, 11)}`,
+    id: `rem-${Math.random().toString(36).substr(2, 9)}`,
     medication_id: medicationId,
     anchor,
     spoken_text: spokenText
@@ -411,7 +409,6 @@ export async function confirmMedication(medicationId: string, appearance: string
   await saveDatabase(db);
 
   try {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
     const { syncScheduledReminders } = require('./reminders');
     await syncScheduledReminders();
   } catch (error) {
@@ -426,7 +423,6 @@ export async function rejectMedication(medicationId: string): Promise<void> {
   await saveDatabase(db);
 
   try {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
     const { syncScheduledReminders } = require('./reminders');
     await syncScheduledReminders();
   } catch (error) {
@@ -438,7 +434,7 @@ export async function addIntakeEvent(event: Omit<IntakeEvent, 'id' | 'at'>): Pro
   const db = await loadDatabase();
   const newEvent: IntakeEvent = {
     ...event,
-    id: `intake-${Math.random().toString(36).slice(2, 11)}`,
+    id: `intake-${Math.random().toString(36).substr(2, 9)}`,
     at: new Date().toISOString()
   };
   db.intake_events.push(newEvent);
@@ -462,7 +458,7 @@ export async function addMemory(memory: Omit<Memory, 'id' | 'created_at'>): Prom
   const db = await loadDatabase();
   const newMemory: Memory = {
     ...memory,
-    id: `mem-${Math.random().toString(36).slice(2, 11)}`,
+    id: `mem-${Math.random().toString(36).substr(2, 9)}`,
     created_at: new Date().toISOString()
   };
   db.memories.push(newMemory);
@@ -479,7 +475,7 @@ export async function addHealthLog(log: Omit<HealthLog, 'id' | 'at'>): Promise<H
   const db = await loadDatabase();
   const newLog: HealthLog = {
     ...log,
-    id: `log-${Math.random().toString(36).slice(2, 11)}`,
+    id: `log-${Math.random().toString(36).substr(2, 9)}`,
     at: new Date().toISOString()
   };
   db.health_logs.push(newLog);
@@ -496,7 +492,7 @@ export async function addAlert(alert: Omit<Alert, 'id' | 'at' | 'notified'>): Pr
   const db = await loadDatabase();
   const newAlert: Alert = {
     ...alert,
-    id: `alert-${Math.random().toString(36).slice(2, 11)}`,
+    id: `alert-${Math.random().toString(36).substr(2, 9)}`,
     notified: false,
     at: new Date().toISOString()
   };

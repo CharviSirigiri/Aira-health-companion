@@ -19,6 +19,9 @@ const MAPPING = {
   'mic.fill': 'mic',
   'chevron.left.forwardslash.chevron.right': 'code',
   'chevron.right': 'chevron-right',
+  'chevron.down': 'keyboard-arrow-down',
+  'person.crop.circle.badge.exclamationmark': 'switch-account',
+  'person.fill': 'person',
 } as IconMapping;
 
 /**

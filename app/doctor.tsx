@@ -6,10 +6,12 @@ import {
   ScrollView, 
   TouchableOpacity, 
   TextInput, 
-  useWindowDimensions 
+  useWindowDimensions,
+  Platform 
 } from 'react-native';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { RoleSwitcher } from '@/components/RoleSwitcher';
+import { Radii, Shadows } from '@/constants/theme';
 import { useTranslation } from '@/services/localization';
 import {
   getMedications,
@@ -201,7 +203,6 @@ export default function DoctorPortal() {
             <Text style={styles.loginBtnText}>Authorized Clinical Login</Text>
           </TouchableOpacity>
         </View>
-        <RoleSwitcher />
       </View>
     );
   }
@@ -212,9 +213,12 @@ export default function DoctorPortal() {
       <View style={styles.selectContainer}>
         <View style={styles.selectHeader}>
           <Text style={styles.selectTitle}>Clinician Panel: {doctorName}</Text>
-          <TouchableOpacity style={styles.signOutBtn} onPress={() => setIsLoggedIn(false)}>
-            <Text style={styles.signOutText}>Sign Out</Text>
-          </TouchableOpacity>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+            <TouchableOpacity style={styles.signOutBtn} onPress={() => setIsLoggedIn(false)}>
+              <Text style={styles.signOutText}>Sign Out</Text>
+            </TouchableOpacity>
+            <RoleSwitcher style={styles.headerRoleSwitcher} />
+          </View>
         </View>
 
         <ScrollView contentContainerStyle={styles.selectScroll}>
@@ -247,7 +251,6 @@ export default function DoctorPortal() {
             </TouchableOpacity>
           ))}
         </ScrollView>
-        <RoleSwitcher />
       </View>
     );
   }
@@ -267,16 +270,19 @@ export default function DoctorPortal() {
       {/* Header */}
       <View style={styles.header}>
         <View style={styles.headerTitleRow}>
-          <TouchableOpacity 
-            style={styles.backButton} 
-            onPress={() => setSelectedPatientId(null)}
-          >
-            <IconSymbol name="chevron.left.forwardslash.chevron.right" size={16} color="#64748B" />
-            <Text style={styles.backButtonText}>Patients List</Text>
-          </TouchableOpacity>
           <View style={styles.titleArea}>
-            <IconSymbol name="chevron.left.forwardslash.chevron.right" size={24} color="#10B981" />
+            <IconSymbol name="chevron.left.forwardslash.chevron.right" size={24} color="#2563EB" />
             <Text style={styles.headerText}>{t('doctorClinicalReview')}</Text>
+          </View>
+          <View style={styles.headerActions}>
+            <TouchableOpacity 
+              style={styles.backButton} 
+              onPress={() => setSelectedPatientId(null)}
+            >
+              <IconSymbol name="chevron.left.forwardslash.chevron.right" size={16} color="#93C5FD" />
+              <Text style={styles.backButtonText}>Patients List</Text>
+            </TouchableOpacity>
+            <RoleSwitcher style={styles.headerRoleSwitcher} />
           </View>
         </View>
         <Text style={styles.headerSub}>
@@ -523,7 +529,6 @@ export default function DoctorPortal() {
           </ScrollView>
         )}
       </View>
-      <RoleSwitcher />
     </View>
   );
 }
@@ -713,12 +718,23 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
   header: {
-    paddingTop: 20,
+    paddingTop: Platform.OS === 'ios' ? 54 : 44,
     paddingHorizontal: 20,
     paddingBottom: 16,
-    backgroundColor: '#fff',
-    borderBottomWidth: 1,
-    borderBottomColor: '#E2E8F0',
+    backgroundColor: '#0F172A', // Clinical Royal Navy Header
+    borderBottomWidth: 2,
+    borderBottomColor: '#2563EB',
+  },
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  headerRoleSwitcher: {
+    position: 'relative',
+    top: 0,
+    right: 0,
+    maxWidth: 160,
   },
   headerTitleRow: {
     flexDirection: 'row',
@@ -730,31 +746,32 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    paddingVertical: 4,
-    paddingHorizontal: 8,
-    borderRadius: 8,
-    backgroundColor: '#F8FAFC',
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: Radii.full,
+    backgroundColor: '#1E293B',
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: '#334155',
   },
   backButtonText: {
     fontSize: 12,
-    color: '#64748B',
-    fontWeight: '600',
+    color: '#93C5FD',
+    fontWeight: '700',
   },
   titleArea: {
     flexDirection: 'row',
     alignItems: 'center',
   },
   headerText: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#0F172A',
+    fontSize: 22,
+    fontWeight: '800',
+    color: '#FFFFFF',
     marginLeft: 8,
+    letterSpacing: -0.3,
   },
   headerSub: {
-    fontSize: 12,
-    color: '#64748B',
+    fontSize: 13,
+    color: '#94A3B8',
     fontWeight: '500',
   },
   contentWrapper: {
@@ -802,16 +819,12 @@ const styles = StyleSheet.create({
   },
   card: {
     backgroundColor: '#fff',
-    borderRadius: 20,
+    borderRadius: Radii.xl,
     padding: 20,
     marginBottom: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.03,
-    shadowRadius: 8,
-    elevation: 2,
     borderWidth: 1,
     borderColor: '#E2E8F0',
+    ...Shadows.sm,
   },
   cardHeaderRow: {
     flexDirection: 'row',
