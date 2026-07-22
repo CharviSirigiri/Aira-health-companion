@@ -10,12 +10,14 @@ import {
   ActivityIndicator, 
   useWindowDimensions, 
   Modal, 
-  Pressable 
+  Pressable,
+  Platform 
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { RoleSwitcher } from '@/components/RoleSwitcher';
 import { useTranslation } from '@/services/localization';
+import { Radii } from '@/constants/theme';
 import {
   getElder,
   updateElder,
@@ -475,7 +477,13 @@ export default function CaregiverDashboard() {
     return (
       <View style={styles.onboardContainer}>
         <View style={styles.onboardHeader}>
-          <Text style={styles.onboardBrand}>AIRA CARE</Text>
+          <View style={styles.onboardHeaderTop}>
+            <View style={styles.titleArea}>
+              <IconSymbol name="paperplane.fill" size={24} color="#F472B6" />
+              <Text style={styles.onboardBrand}>AIRA CARE LOGIN</Text>
+            </View>
+            <RoleSwitcher style={styles.headerRoleSwitcher} />
+          </View>
           <View style={styles.stepsRow}>
             {[1, 2, 3].map(step => (
               <View 
@@ -494,7 +502,6 @@ export default function CaregiverDashboard() {
           {onboardStep === 2 && renderOnboardingStep2()}
           {onboardStep === 3 && renderOnboardingStep3()}
         </ScrollView>
-        <RoleSwitcher />
       </View>
     );
   }
@@ -729,12 +736,18 @@ export default function CaregiverDashboard() {
       <View style={styles.header}>
         <View style={styles.headerTitleContainer}>
           <View style={styles.titleArea}>
-            <IconSymbol name="paperplane.fill" size={24} color="#D01C8B" />
+            <IconSymbol name="paperplane.fill" size={24} color="#F472B6" />
             <Text style={styles.headerText}>{t('caregiverPortal')}</Text>
           </View>
           <Text style={styles.headerSub}>
             Caregiver: <Text style={{ fontWeight: '600' }}>{caregiverName || "Susan's Daughter"}</Text> | Linked Elder: <Text style={{ fontWeight: '600' }}>Susan</Text>
           </Text>
+        </View>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+          <TouchableOpacity style={styles.signOutBtn} onPress={() => setIsOnboarded(false)}>
+            <Text style={styles.signOutText}>Sign Out</Text>
+          </TouchableOpacity>
+          <RoleSwitcher style={styles.headerRoleSwitcher} />
         </View>
       </View>
 
@@ -853,9 +866,6 @@ export default function CaregiverDashboard() {
           </View>
         </Pressable>
       </Modal>
-
-      {/* Persistent global switcher */}
-      <RoleSwitcher />
     </View>
   );
 }
@@ -867,41 +877,46 @@ const styles = StyleSheet.create({
   },
   onboardContainer: {
     flex: 1,
-    backgroundColor: '#F1F5F9',
-    justifyContent: 'center',
+    backgroundColor: '#FDF2F8', // Soft pink canvas
   },
   onboardHeader: {
-    paddingTop: 50,
+    paddingTop: Platform.OS === 'ios' ? 54 : 44,
     paddingHorizontal: 24,
-    paddingBottom: 20,
-    backgroundColor: '#fff',
+    paddingBottom: 16,
+    backgroundColor: '#831843', // Deep Hot Pink Header
     borderBottomWidth: 1,
-    borderBottomColor: '#E2E8F0',
+    borderBottomColor: '#BE185D',
+  },
+  onboardHeaderTop: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    marginBottom: 12,
   },
   onboardBrand: {
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: '800',
-    color: '#D01C8B',
-    letterSpacing: 1,
+    color: '#FFFFFF',
+    marginLeft: 8,
+    letterSpacing: 0.5,
   },
   stepsRow: {
     flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
     gap: 8,
   },
   stepDot: {
     width: 10,
     height: 10,
     borderRadius: 5,
-    backgroundColor: '#CBD5E1',
+    backgroundColor: '#9D174D',
   },
   stepDotActive: {
-    backgroundColor: '#D01C8B',
+    backgroundColor: '#F472B6',
   },
   stepDotCurrent: {
-    width: 24,
+    width: 28,
   },
   onboardScroll: {
     padding: 24,
@@ -1071,15 +1086,24 @@ const styles = StyleSheet.create({
     color: '#0F172A',
   },
   header: {
-    paddingTop: 50,
+    paddingTop: Platform.OS === 'ios' ? 54 : 44,
     paddingHorizontal: 20,
     paddingBottom: 16,
-    backgroundColor: '#fff',
-    borderBottomWidth: 1,
-    borderBottomColor: '#E2E8F0',
+    backgroundColor: '#831843', // Vibrant Deep Hot Pink header
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  headerRoleSwitcher: {
+    position: 'relative',
+    top: 0,
+    right: 0,
+    maxWidth: 160,
   },
   headerTitleContainer: {
     flexDirection: 'column',
+    flex: 1,
+    marginRight: 12,
   },
   titleArea: {
     flexDirection: 'row',
@@ -1087,43 +1111,59 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   headerText: {
-    fontSize: 20,
+    fontSize: 22,
     fontWeight: '800',
-    color: '#0F172A',
+    color: '#FFFFFF',
     marginLeft: 8,
+    letterSpacing: -0.3,
   },
   headerSub: {
-    fontSize: 12,
-    color: '#64748B',
+    fontSize: 13,
+    color: '#FBCFE8',
     fontWeight: '500',
   },
   tabBar: {
     flexDirection: 'row',
-    backgroundColor: '#fff',
+    backgroundColor: '#9D174D',
     borderBottomWidth: 1,
-    borderBottomColor: '#E2E8F0',
+    borderBottomColor: '#BE185D',
     paddingHorizontal: 16,
   },
   tabItem: {
-    paddingVertical: 12,
+    paddingVertical: 14,
     paddingHorizontal: 16,
     marginRight: 8,
-    borderBottomWidth: 2,
+    borderBottomWidth: 3,
     borderBottomColor: 'transparent',
   },
   tabItemActive: {
-    borderBottomColor: '#D01C8B',
+    borderBottomColor: '#F472B6',
   },
   tabText: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#64748B',
+    color: '#FBCFE8',
   },
   tabTextActive: {
-    color: '#D01C8B',
+    color: '#FFFFFF',
+    fontWeight: '800',
+  },
+  signOutBtn: {
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: Radii.full,
+    backgroundColor: '#9D174D',
+    borderWidth: 1,
+    borderColor: '#BE185D',
+  },
+  signOutText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#FBCFE8',
   },
   mainContainer: {
     flex: 1,
+    backgroundColor: '#FDF2F8', // Soft pink canvas
   },
   desktopLayout: {
     flex: 1,
