@@ -9,14 +9,20 @@ Legend: [ ] not started · [~] partial/in progress · [x] done
 
 ## 0. Foundation (do these first — everything else depends on them)
 
-- [ ] **Real Supabase project wired up** — `services/supabase.ts` currently has
-  placeholder URL/anon key and is imported nowhere. Acceptance: app reads/writes
-  through Supabase client, not the local JSON blob in `services/database.ts`.
-- [ ] **Apply `supabase/schema.sql` to the real project** — verify confirmation-gate
-  trigger (`check_medication_confirmed_before_reminder`) actually fires.
-- [ ] **Fix RLS policies** — currently `USING (true) WITH CHECK (true)` on every
-  table in `supabase/schema.sql`, i.e. wide open. Acceptance: elder/caregiver/doctor
-  roles scoped per AD-7.
+- [x] **Real Supabase project credentials wired into `.env`** — project URL +
+  anon key set (gitignored). `services/supabase.ts` client itself still needs to
+  be imported/used by app code (currently dead code, see item below).
+- [x] **Applied `supabase/schema.sql` to the real project** — schema + seed data
+  live. Added `caregiver.user_id` / `doctor.user_id` columns linking to
+  `auth.users` for RLS scoping.
+- [x] **Fixed RLS policies** — replaced `USING (true)` wide-open policies with
+  role-scoped ones: elder device (unauthenticated) writes vs caregiver/doctor
+  read access via `accessible_elder_ids()`; caregiver has write access
+  (confirm gate, routine edits) via `caregiver_elder_ids()`; doctor is
+  read-only + can insert `memory` notes, per PRD FR39-41.
+- [ ] Confirmation-gate trigger (`check_medication_confirmed_before_reminder`)
+  applied but not yet exercised by real app traffic (app doesn't talk to
+  Supabase yet — see Section 8 migration item).
 - [ ] **Move Gemini calls server-side** — `EXPO_PUBLIC_GEMINI_API_KEY` is bundled
   client-side (`services/gemini.ts`). Acceptance: key lives only in a Supabase Edge
   Function; client calls the function, not Gemini directly.

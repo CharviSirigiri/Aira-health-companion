@@ -26,6 +26,7 @@ CREATE TABLE IF NOT EXISTS caregiver (
     role TEXT NOT NULL DEFAULT 'caregiver',
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
+ALTER TABLE caregiver ADD COLUMN IF NOT EXISTS user_id UUID REFERENCES auth.users(id) ON DELETE SET NULL;
 
 -- 3. Doctor Table
 CREATE TABLE IF NOT EXISTS doctor (
@@ -35,6 +36,7 @@ CREATE TABLE IF NOT EXISTS doctor (
     role TEXT NOT NULL DEFAULT 'doctor',
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
+ALTER TABLE doctor ADD COLUMN IF NOT EXISTS user_id UUID REFERENCES auth.users(id) ON DELETE SET NULL;
 
 -- 4. Prescription Table
 CREATE TABLE IF NOT EXISTS prescription (
@@ -114,52 +116,151 @@ CREATE TABLE IF NOT EXISTS consent (
 );
 
 -- ========================================================
--- ENABLE ROW LEVEL SECURITY (RLS) & POLICIES
+-- ENABLE ROW LEVEL SECURITY (RLS) & POLICIES (AD-7)
+--
+-- Model: a signed-in user (auth.uid()) is linked to at most one
+-- caregiver row and/or one doctor row via caregiver.user_id /
+-- doctor.user_id. Access to an elder's data is granted only if the
+-- signed-in user is linked to a caregiver or doctor row pointing at
+-- that elder_id. The elder's own on-device app uses the anon key
+-- with no auth.uid() (voice-only device, no login) so elder-owned
+-- writes are allowed unauthenticated for now (matches AD-5); this
+-- can be tightened later with a device-bound API key if needed.
 -- ========================================================
+
+-- Helper: elder_ids the current signed-in user may access as caregiver or doctor.
+CREATE OR REPLACE FUNCTION accessible_elder_ids()
+RETURNS SETOF UUID
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = public
+AS $$
+    SELECT elder_id FROM caregiver WHERE user_id = auth.uid()
+    UNION
+    SELECT elder_id FROM doctor WHERE user_id = auth.uid()
+$$;
+
+-- Helper: elder_ids the current signed-in user may access as caregiver (write-capable).
+-- Doctors are read-only per PRD FR39-41 and are excluded here.
+CREATE OR REPLACE FUNCTION caregiver_elder_ids()
+RETURNS SETOF UUID
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = public
+AS $$
+    SELECT elder_id FROM caregiver WHERE user_id = auth.uid()
+$$;
 
 ALTER TABLE elder ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "Allow public read write on elder" ON elder;
-CREATE POLICY "Allow public read write on elder" ON elder FOR ALL USING (true) WITH CHECK (true);
+DROP POLICY IF EXISTS "elder_device_access" ON elder;
+DROP POLICY IF EXISTS "elder_caregiver_doctor_access" ON elder;
+CREATE POLICY "elder_device_access" ON elder FOR ALL USING (auth.uid() IS NULL) WITH CHECK (auth.uid() IS NULL);
+CREATE POLICY "elder_caregiver_doctor_access" ON elder FOR SELECT USING (id IN (SELECT accessible_elder_ids()));
+DROP POLICY IF EXISTS "elder_caregiver_write" ON elder;
+CREATE POLICY "elder_caregiver_write" ON elder FOR UPDATE USING (id IN (SELECT caregiver_elder_ids())) WITH CHECK (id IN (SELECT caregiver_elder_ids()));
 
 ALTER TABLE caregiver ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "Allow public read write on caregiver" ON caregiver;
-CREATE POLICY "Allow public read write on caregiver" ON caregiver FOR ALL USING (true) WITH CHECK (true);
+DROP POLICY IF EXISTS "caregiver_self_access" ON caregiver;
+CREATE POLICY "caregiver_self_access" ON caregiver FOR ALL USING (user_id = auth.uid()) WITH CHECK (user_id = auth.uid());
 
 ALTER TABLE doctor ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "Allow public read write on doctor" ON doctor;
-CREATE POLICY "Allow public read write on doctor" ON doctor FOR ALL USING (true) WITH CHECK (true);
+DROP POLICY IF EXISTS "doctor_self_access" ON doctor;
+CREATE POLICY "doctor_self_access" ON doctor FOR ALL USING (user_id = auth.uid()) WITH CHECK (user_id = auth.uid());
 
 ALTER TABLE prescription ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "Allow public read write on prescription" ON prescription;
-CREATE POLICY "Allow public read write on prescription" ON prescription FOR ALL USING (true) WITH CHECK (true);
+DROP POLICY IF EXISTS "prescription_device_access" ON prescription;
+DROP POLICY IF EXISTS "prescription_caregiver_doctor_access" ON prescription;
+CREATE POLICY "prescription_device_access" ON prescription FOR ALL USING (auth.uid() IS NULL) WITH CHECK (auth.uid() IS NULL);
+CREATE POLICY "prescription_caregiver_doctor_access" ON prescription FOR SELECT USING (elder_id IN (SELECT accessible_elder_ids()));
+DROP POLICY IF EXISTS "prescription_caregiver_write" ON prescription;
+CREATE POLICY "prescription_caregiver_write" ON prescription FOR ALL USING (elder_id IN (SELECT caregiver_elder_ids())) WITH CHECK (elder_id IN (SELECT caregiver_elder_ids()));
 
 ALTER TABLE medication ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "Allow public read write on medication" ON medication;
-CREATE POLICY "Allow public read write on medication" ON medication FOR ALL USING (true) WITH CHECK (true);
+DROP POLICY IF EXISTS "medication_device_access" ON medication;
+DROP POLICY IF EXISTS "medication_caregiver_doctor_access" ON medication;
+CREATE POLICY "medication_device_access" ON medication FOR ALL USING (auth.uid() IS NULL) WITH CHECK (auth.uid() IS NULL);
+CREATE POLICY "medication_caregiver_doctor_access" ON medication FOR SELECT USING (
+    prescription_id IN (SELECT id FROM prescription WHERE elder_id IN (SELECT accessible_elder_ids()))
+);
+DROP POLICY IF EXISTS "medication_caregiver_write" ON medication;
+CREATE POLICY "medication_caregiver_write" ON medication FOR ALL USING (
+    prescription_id IN (SELECT id FROM prescription WHERE elder_id IN (SELECT caregiver_elder_ids()))
+) WITH CHECK (
+    prescription_id IN (SELECT id FROM prescription WHERE elder_id IN (SELECT caregiver_elder_ids()))
+);
 
 ALTER TABLE reminder ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "Allow public read write on reminder" ON reminder;
-CREATE POLICY "Allow public read write on reminder" ON reminder FOR ALL USING (true) WITH CHECK (true);
+DROP POLICY IF EXISTS "reminder_device_access" ON reminder;
+DROP POLICY IF EXISTS "reminder_caregiver_doctor_access" ON reminder;
+CREATE POLICY "reminder_device_access" ON reminder FOR ALL USING (auth.uid() IS NULL) WITH CHECK (auth.uid() IS NULL);
+CREATE POLICY "reminder_caregiver_doctor_access" ON reminder FOR SELECT USING (
+    medication_id IN (
+        SELECT m.id FROM medication m JOIN prescription p ON m.prescription_id = p.id
+        WHERE p.elder_id IN (SELECT accessible_elder_ids())
+    )
+);
+DROP POLICY IF EXISTS "reminder_caregiver_write" ON reminder;
+CREATE POLICY "reminder_caregiver_write" ON reminder FOR ALL USING (
+    medication_id IN (
+        SELECT m.id FROM medication m JOIN prescription p ON m.prescription_id = p.id
+        WHERE p.elder_id IN (SELECT caregiver_elder_ids())
+    )
+) WITH CHECK (
+    medication_id IN (
+        SELECT m.id FROM medication m JOIN prescription p ON m.prescription_id = p.id
+        WHERE p.elder_id IN (SELECT caregiver_elder_ids())
+    )
+);
 
 ALTER TABLE intake_event ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "Allow public read write on intake_event" ON intake_event;
-CREATE POLICY "Allow public read write on intake_event" ON intake_event FOR ALL USING (true) WITH CHECK (true);
+DROP POLICY IF EXISTS "intake_event_device_access" ON intake_event;
+DROP POLICY IF EXISTS "intake_event_caregiver_doctor_access" ON intake_event;
+CREATE POLICY "intake_event_device_access" ON intake_event FOR ALL USING (auth.uid() IS NULL) WITH CHECK (auth.uid() IS NULL);
+CREATE POLICY "intake_event_caregiver_doctor_access" ON intake_event FOR SELECT USING (
+    medication_id IN (
+        SELECT m.id FROM medication m JOIN prescription p ON m.prescription_id = p.id
+        WHERE p.elder_id IN (SELECT accessible_elder_ids())
+    )
+);
 
 ALTER TABLE memory ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "Allow public read write on memory" ON memory;
-CREATE POLICY "Allow public read write on memory" ON memory FOR ALL USING (true) WITH CHECK (true);
+DROP POLICY IF EXISTS "memory_device_access" ON memory;
+DROP POLICY IF EXISTS "memory_caregiver_doctor_access" ON memory;
+CREATE POLICY "memory_device_access" ON memory FOR ALL USING (auth.uid() IS NULL) WITH CHECK (auth.uid() IS NULL);
+CREATE POLICY "memory_caregiver_doctor_access" ON memory FOR SELECT USING (elder_id IN (SELECT accessible_elder_ids()));
+DROP POLICY IF EXISTS "memory_caregiver_doctor_write" ON memory;
+CREATE POLICY "memory_caregiver_doctor_write" ON memory FOR INSERT WITH CHECK (elder_id IN (SELECT accessible_elder_ids()));
 
 ALTER TABLE health_log ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "Allow public read write on health_log" ON health_log;
-CREATE POLICY "Allow public read write on health_log" ON health_log FOR ALL USING (true) WITH CHECK (true);
+DROP POLICY IF EXISTS "health_log_device_access" ON health_log;
+DROP POLICY IF EXISTS "health_log_caregiver_doctor_access" ON health_log;
+CREATE POLICY "health_log_device_access" ON health_log FOR ALL USING (auth.uid() IS NULL) WITH CHECK (auth.uid() IS NULL);
+CREATE POLICY "health_log_caregiver_doctor_access" ON health_log FOR SELECT USING (elder_id IN (SELECT accessible_elder_ids()));
 
 ALTER TABLE alert ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "Allow public read write on alert" ON alert;
-CREATE POLICY "Allow public read write on alert" ON alert FOR ALL USING (true) WITH CHECK (true);
+DROP POLICY IF EXISTS "alert_device_access" ON alert;
+DROP POLICY IF EXISTS "alert_caregiver_doctor_access" ON alert;
+CREATE POLICY "alert_device_access" ON alert FOR ALL USING (auth.uid() IS NULL) WITH CHECK (auth.uid() IS NULL);
+CREATE POLICY "alert_caregiver_doctor_access" ON alert FOR SELECT USING (elder_id IN (SELECT accessible_elder_ids()));
 
 ALTER TABLE consent ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "Allow public read write on consent" ON consent;
-CREATE POLICY "Allow public read write on consent" ON consent FOR ALL USING (true) WITH CHECK (true);
+DROP POLICY IF EXISTS "consent_device_access" ON consent;
+DROP POLICY IF EXISTS "consent_caregiver_doctor_access" ON consent;
+CREATE POLICY "consent_device_access" ON consent FOR ALL USING (auth.uid() IS NULL) WITH CHECK (auth.uid() IS NULL);
+CREATE POLICY "consent_caregiver_doctor_access" ON consent FOR SELECT USING (elder_id IN (SELECT accessible_elder_ids()));
 
 -- ========================================================
 -- INVARIANTS & SAFETY TRIGGERS (DC-3 / FR9)
