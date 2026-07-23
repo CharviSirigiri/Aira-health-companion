@@ -26,8 +26,17 @@ Legend: [ ] not started · [~] partial/in progress · [x] done
 - [ ] **Move Gemini calls server-side** — `EXPO_PUBLIC_GEMINI_API_KEY` is bundled
   client-side (`services/gemini.ts`). Acceptance: key lives only in a Supabase Edge
   Function; client calls the function, not Gemini directly.
-- [ ] **Real auth for caregiver/doctor** — both `app/caregiver.tsx` (pairing code)
-  and `app/doctor.tsx:195` (PIN) are local component state, not verified server-side.
+- [x] **Real auth for caregiver/doctor** — `services/auth.ts` added, wired into
+  `app/caregiver.tsx` and `app/doctor.tsx` with real Supabase email/password
+  sign-up/sign-in, replacing the old local-state pairing-code/PIN gates.
+  Added `claim_caregiver`/`claim_doctor` SECURITY DEFINER RPC functions in
+  `supabase/schema.sql` so a first-time sign-up can link itself to the
+  still-unclaimed seed caregiver/doctor row (plain RLS would otherwise hide
+  that unlinked row from the new user). Elder routine/pairing-code step (step 2
+  of onboarding) is still local UI only — the pairing code isn't validated
+  against anything server-side yet since this is a single pilot-elder ("Susan")
+  build; noted as a known simplification, not a bug to fix unless multi-elder
+  support is in scope.
 
 ## 1. Voice & Conversation
 

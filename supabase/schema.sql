@@ -263,6 +263,85 @@ CREATE POLICY "consent_device_access" ON consent FOR ALL USING (auth.uid() IS NU
 CREATE POLICY "consent_caregiver_doctor_access" ON consent FOR SELECT USING (elder_id IN (SELECT accessible_elder_ids()));
 
 -- ========================================================
+-- AUTH CLAIM FUNCTIONS
+--
+-- The caregiver/doctor RLS policies only grant access once user_id
+-- matches auth.uid(), which means a freshly signed-up user can never
+-- SELECT/UPDATE the still-unclaimed seed row to link themselves to it
+-- (RLS would hide it). These SECURITY DEFINER functions bypass RLS
+-- internally to perform that one-time claim safely: they only ever
+-- link the CALLING user's own auth.uid(), never an arbitrary one.
+-- ========================================================
+
+CREATE OR REPLACE FUNCTION claim_caregiver(target_elder_id UUID, caregiver_name TEXT, caregiver_email TEXT)
+RETURNS caregiver
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+    result caregiver;
+BEGIN
+    IF auth.uid() IS NULL THEN
+        RAISE EXCEPTION 'Must be signed in to claim a caregiver profile';
+    END IF;
+
+    SELECT * INTO result FROM caregiver WHERE user_id = auth.uid();
+    IF FOUND THEN
+        RETURN result;
+    END IF;
+
+    UPDATE caregiver
+    SET user_id = auth.uid(), name = caregiver_name, email = caregiver_email
+    WHERE elder_id = target_elder_id AND user_id IS NULL
+    RETURNING * INTO result;
+
+    IF NOT FOUND THEN
+        INSERT INTO caregiver (elder_id, user_id, name, email)
+        VALUES (target_elder_id, auth.uid(), caregiver_name, caregiver_email)
+        RETURNING * INTO result;
+    END IF;
+
+    RETURN result;
+END;
+$$;
+GRANT EXECUTE ON FUNCTION claim_caregiver(UUID, TEXT, TEXT) TO authenticated;
+
+CREATE OR REPLACE FUNCTION claim_doctor(target_elder_id UUID, doctor_name TEXT)
+RETURNS doctor
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+    result doctor;
+BEGIN
+    IF auth.uid() IS NULL THEN
+        RAISE EXCEPTION 'Must be signed in to claim a doctor profile';
+    END IF;
+
+    SELECT * INTO result FROM doctor WHERE user_id = auth.uid();
+    IF FOUND THEN
+        RETURN result;
+    END IF;
+
+    UPDATE doctor
+    SET user_id = auth.uid(), name = doctor_name
+    WHERE elder_id = target_elder_id AND user_id IS NULL
+    RETURNING * INTO result;
+
+    IF NOT FOUND THEN
+        INSERT INTO doctor (elder_id, user_id, name)
+        VALUES (target_elder_id, auth.uid(), doctor_name)
+        RETURNING * INTO result;
+    END IF;
+
+    RETURN result;
+END;
+$$;
+GRANT EXECUTE ON FUNCTION claim_doctor(UUID, TEXT) TO authenticated;
+
+-- ========================================================
 -- INVARIANTS & SAFETY TRIGGERS (DC-3 / FR9)
 -- Enforcement: Reminders can ONLY be inserted for confirmed medications.
 -- ========================================================

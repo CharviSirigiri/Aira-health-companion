@@ -25,6 +25,14 @@ import {
   HealthLog,
   Memory
 } from '@/services/database';
+import {
+  signUp as authSignUp,
+  signIn as authSignIn,
+  signOut as authSignOut,
+  getSession,
+  claimDoctorProfile,
+  getDoctorProfile,
+} from '@/services/auth';
 
 export default function DoctorPortal() {
   const { t } = useTranslation();
@@ -34,7 +42,11 @@ export default function DoctorPortal() {
   // Authentication & Selection States
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [doctorName, setDoctorName] = useState('');
-  const [doctorPasscode, setDoctorPasscode] = useState('');
+  const [doctorEmail, setDoctorEmail] = useState('');
+  const [doctorPassword, setDoctorPassword] = useState('');
+  const [authMode, setAuthMode] = useState<'signup' | 'signin'>('signup');
+  const [authLoading, setAuthLoading] = useState(false);
+  const [authError, setAuthError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedPatientId, setSelectedPatientId] = useState<string | null>(null);
 
@@ -86,6 +98,23 @@ export default function DoctorPortal() {
     }
   }, [selectedPatientId]);
 
+  useEffect(() => {
+    (async () => {
+      try {
+        const session = await getSession();
+        if (session) {
+          const profile = await getDoctorProfile(session.user.id);
+          if (profile) {
+            setDoctorName(profile.name);
+            setIsLoggedIn(true);
+          }
+        }
+      } catch (err) {
+        console.error(err);
+      }
+    })();
+  }, []);
+
   const loadPatientData = async (patientId: string) => {
     try {
       const meds = await getMedications(patientId);
@@ -101,12 +130,48 @@ export default function DoctorPortal() {
     }
   };
 
-  const handleLogin = () => {
-    if (!doctorName.trim() || !doctorPasscode.trim()) {
-      alert('Please enter a clinical name and passcode PIN.');
+  const handleLogin = async () => {
+    if (!doctorEmail.trim() || !doctorPassword.trim() || (authMode === 'signup' && !doctorName.trim())) {
+      setAuthError('Please fill in all details.');
       return;
     }
-    setIsLoggedIn(true);
+    setAuthLoading(true);
+    setAuthError(null);
+    try {
+      if (authMode === 'signup') {
+        await authSignUp(doctorEmail.trim(), doctorPassword);
+        await claimDoctorProfile(doctorName.trim());
+        setIsLoggedIn(true);
+      } else {
+        const { session } = await authSignIn(doctorEmail.trim(), doctorPassword);
+        if (session) {
+          const profile = await getDoctorProfile(session.user.id);
+          if (profile) {
+            setDoctorName(profile.name);
+          }
+          setIsLoggedIn(true);
+        }
+      }
+    } catch (error: any) {
+      console.error(error);
+      setAuthError(error?.message || 'Authentication failed.');
+    } finally {
+      setAuthLoading(false);
+    }
+  };
+
+  const handleSignOut = async () => {
+    try {
+      await authSignOut();
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsLoggedIn(false);
+      setDoctorName('');
+      setDoctorEmail('');
+      setDoctorPassword('');
+      setSelectedPatientId(null);
+    }
   };
 
   const handleAddDoctorNote = async () => {
@@ -180,27 +245,55 @@ export default function DoctorPortal() {
           </View>
           <Text style={styles.clinicalSub}>{`AIRA Doctor's Web Dashboard - Secure Clinical Verification.`}</Text>
           
-          <Text style={styles.loginLabel}>Clinical Doctor Name</Text>
+          {authMode === 'signup' && (
+            <>
+              <Text style={styles.loginLabel}>Clinical Doctor Name</Text>
+              <TextInput
+                style={styles.loginInput}
+                placeholder="e.g. Dr. Ramesh"
+                placeholderTextColor="#94A3B8"
+                value={doctorName}
+                onChangeText={setDoctorName}
+              />
+            </>
+          )}
+
+          <Text style={styles.loginLabel}>Email Address</Text>
           <TextInput
             style={styles.loginInput}
-            placeholder="e.g. Dr. Ramesh"
+            placeholder="e.g. doctor@clinic.com"
             placeholderTextColor="#94A3B8"
-            value={doctorName}
-            onChangeText={setDoctorName}
+            keyboardType="email-address"
+            autoCapitalize="none"
+            value={doctorEmail}
+            onChangeText={setDoctorEmail}
           />
 
-          <Text style={styles.loginLabel}>Clinical PIN Passcode</Text>
+          <Text style={styles.loginLabel}>Password</Text>
           <TextInput
             style={styles.loginInput}
-            placeholder="Enter clinical PIN code"
+            placeholder="Enter password (min 6 characters)"
             placeholderTextColor="#94A3B8"
             secureTextEntry={true}
-            value={doctorPasscode}
-            onChangeText={setDoctorPasscode}
+            value={doctorPassword}
+            onChangeText={setDoctorPassword}
           />
 
-          <TouchableOpacity style={styles.loginBtn} onPress={handleLogin}>
-            <Text style={styles.loginBtnText}>Authorized Clinical Login</Text>
+          {authError && <Text style={{ color: '#DC2626', marginBottom: 8 }}>{authError}</Text>}
+
+          <TouchableOpacity style={styles.loginBtn} onPress={handleLogin} disabled={authLoading}>
+            <Text style={styles.loginBtnText}>
+              {authLoading ? 'Please wait…' : authMode === 'signup' ? 'Create Clinical Account' : 'Authorized Clinical Login'}
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={{ marginTop: 12, alignItems: 'center' }}
+            onPress={() => { setAuthMode(authMode === 'signup' ? 'signin' : 'signup'); setAuthError(null); }}
+          >
+            <Text style={{ color: '#10B981' }}>
+              {authMode === 'signup' ? 'Already have an account? Sign in' : 'Need an account? Sign up'}
+            </Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -214,7 +307,7 @@ export default function DoctorPortal() {
         <View style={styles.selectHeader}>
           <Text style={styles.selectTitle}>Clinician Panel: {doctorName}</Text>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-            <TouchableOpacity style={styles.signOutBtn} onPress={() => setIsLoggedIn(false)}>
+            <TouchableOpacity style={styles.signOutBtn} onPress={handleSignOut}>
               <Text style={styles.signOutText}>Sign Out</Text>
             </TouchableOpacity>
             <RoleSwitcher style={styles.headerRoleSwitcher} />

@@ -30,18 +30,22 @@ import {
   getHealthLogs,
   markAlertNotified,
   getReminders,
-  resetDatabase,
-  loadDatabase,
-  saveDatabase,
   Medication,
   HealthLog,
   Alert as AlertType,
   Elder,
   Reminder,
-  Caregiver
 } from '@/services/database';
 import { parsePrescription } from '@/services/gemini';
 import { triggerTestReminder, syncScheduledReminders } from '@/services/reminders';
+import {
+  signUp as authSignUp,
+  signIn as authSignIn,
+  signOut as authSignOut,
+  getSession,
+  claimCaregiverProfile,
+  getCaregiverProfile,
+} from '@/services/auth';
 
 export default function CaregiverDashboard() {
   const { t } = useTranslation();
@@ -53,6 +57,10 @@ export default function CaregiverDashboard() {
   const [onboardStep, setOnboardStep] = useState<number>(1);
   const [caregiverName, setCaregiverName] = useState<string>('');
   const [caregiverEmail, setCaregiverEmail] = useState<string>('');
+  const [caregiverPassword, setCaregiverPassword] = useState<string>('');
+  const [authMode, setAuthMode] = useState<'signup' | 'signin'>('signup');
+  const [authLoading, setAuthLoading] = useState(false);
+  const [authError, setAuthError] = useState<string | null>(null);
   const [pairingCode, setPairingCode] = useState<string>('');
   const [elderLanguage, setElderLanguage] = useState<'en' | 'ms'>('en');
   const [elderPersona, setElderPersona] = useState<string>('warm');
@@ -116,21 +124,58 @@ export default function CaregiverDashboard() {
       const rems = await getReminders('elder-susan');
       setReminders(rems);
 
-      // Check if caregiver was previously onboarded (custom name loaded)
-      const db = await loadDatabase();
-      const cg = db.caregivers.find((c: Caregiver) => c.elder_id === 'elder-susan');
-      if (cg && cg.name && cg.name !== "Susan's Daughter") {
-        setCaregiverName(cg.name);
-        setIsOnboarded(true);
+      // Check for an existing Supabase Auth session linked to a caregiver profile
+      const session = await getSession();
+      if (session) {
+        const profile = await getCaregiverProfile(session.user.id);
+        if (profile) {
+          setCaregiverName(profile.name);
+          setCaregiverEmail(profile.email || '');
+          setIsOnboarded(true);
+        }
       }
     } catch (err) {
       console.error(err);
     }
   };
 
+  // Step 1: real Supabase Auth sign-up/sign-in, then claim the caregiver profile.
+  const handleAuthSubmit = async () => {
+    if (!caregiverEmail.trim() || !caregiverPassword.trim() || (authMode === 'signup' && !caregiverName.trim())) {
+      setAuthError('Please fill in all details.');
+      return;
+    }
+    setAuthLoading(true);
+    setAuthError(null);
+    try {
+      if (authMode === 'signup') {
+        await authSignUp(caregiverEmail.trim(), caregiverPassword);
+        await claimCaregiverProfile(caregiverName.trim(), caregiverEmail.trim());
+        setOnboardStep(2);
+      } else {
+        const { session } = await authSignIn(caregiverEmail.trim(), caregiverPassword);
+        if (session) {
+          const profile = await getCaregiverProfile(session.user.id);
+          if (profile) {
+            setCaregiverName(profile.name);
+            setIsOnboarded(true);
+            await loadData();
+            return;
+          }
+        }
+        setOnboardStep(2);
+      }
+    } catch (error: any) {
+      console.error(error);
+      setAuthError(error?.message || 'Authentication failed.');
+    } finally {
+      setAuthLoading(false);
+    }
+  };
+
   // Onboarding Complete Handler (FR1 / FR2 / UJ-1)
   const handleCompleteOnboarding = async () => {
-    if (!caregiverName.trim() || !caregiverEmail.trim() || !pairingCode.trim()) {
+    if (!pairingCode.trim()) {
       alert('Please fill in all details.');
       return;
     }
@@ -149,15 +194,7 @@ export default function CaregiverDashboard() {
         setElder(updated);
       }
 
-      // 2. Save caregiver profile in DB
-      const db = await loadDatabase();
-      const cg = db.caregivers.find((c: Caregiver) => c.elder_id === 'elder-susan');
-      if (cg) {
-        cg.name = caregiverName;
-      }
-      await saveDatabase(db);
-
-      // 3. Sync reminders based on new routine timings
+      // 2. Sync reminders based on new routine timings
       await syncScheduledReminders();
 
       setIsOnboarded(true);
@@ -169,20 +206,20 @@ export default function CaregiverDashboard() {
     }
   };
 
-  // Reset Onboarding / Log Out helper (for debugging/evaluation convenience)
+  // Sign out (replaces the old local-state-only reset)
   const handleResetPortal = async () => {
     try {
-      await resetDatabase();
+      await authSignOut();
       setCaregiverName('');
       setCaregiverEmail('');
+      setCaregiverPassword('');
       setPairingCode('');
       setNewParsedMeds([]);
       setSelectedImage(null);
       setIsOnboarded(false);
       setOnboardStep(1);
       setActiveTab('overview');
-      await loadData();
-      alert('Caregiver portal has been reset to fresh onboarding state.');
+      alert('Signed out.');
     } catch (error) {
       console.error(error);
     }
@@ -334,17 +371,21 @@ export default function CaregiverDashboard() {
   // Render Onboarding Views
   const renderOnboardingStep1 = () => (
     <View style={styles.onboardCard}>
-      <Text style={styles.onboardTitle}>1. Create Caregiver Account</Text>
+      <Text style={styles.onboardTitle}>{authMode === 'signup' ? '1. Create Caregiver Account' : 'Sign In'}</Text>
       <Text style={styles.onboardSub}>{`Create an account to synchronize data and coordinate care with Susan's clinical team.`}</Text>
-      
-      <Text style={styles.onboardLabel}>Your Name</Text>
-      <TextInput
-        style={styles.onboardInput}
-        placeholder="e.g. Susan's Daughter"
-        placeholderTextColor="#94A3B8"
-        value={caregiverName}
-        onChangeText={setCaregiverName}
-      />
+
+      {authMode === 'signup' && (
+        <>
+          <Text style={styles.onboardLabel}>Your Name</Text>
+          <TextInput
+            style={styles.onboardInput}
+            placeholder="e.g. Susan's Daughter"
+            placeholderTextColor="#94A3B8"
+            value={caregiverName}
+            onChangeText={setCaregiverName}
+          />
+        </>
+      )}
 
       <Text style={styles.onboardLabel}>Email Address</Text>
       <TextInput
@@ -357,20 +398,35 @@ export default function CaregiverDashboard() {
         onChangeText={setCaregiverEmail}
       />
 
-      <Text style={styles.onboardLabel}>Security Passcode</Text>
+      <Text style={styles.onboardLabel}>Password</Text>
       <TextInput
         style={styles.onboardInput}
-        placeholder="Enter safe passcode"
+        placeholder="Enter password (min 6 characters)"
         placeholderTextColor="#94A3B8"
         secureTextEntry={true}
+        value={caregiverPassword}
+        onChangeText={setCaregiverPassword}
       />
 
-      <TouchableOpacity 
-        style={[styles.onboardBtn, (!caregiverName.trim() || !caregiverEmail.trim()) && styles.onboardBtnDisabled]}
-        onPress={() => setOnboardStep(2)}
-        disabled={!caregiverName.trim() || !caregiverEmail.trim()}
+      {authError && <Text style={{ color: '#DC2626', marginBottom: 8 }}>{authError}</Text>}
+
+      <TouchableOpacity
+        style={[styles.onboardBtn, authLoading && styles.onboardBtnDisabled]}
+        onPress={handleAuthSubmit}
+        disabled={authLoading}
       >
-        <Text style={styles.onboardBtnText}>{`Next: Link Susan's Device`}</Text>
+        <Text style={styles.onboardBtnText}>
+          {authLoading ? 'Please wait…' : authMode === 'signup' ? `Create Account & Continue` : 'Sign In'}
+        </Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity
+        style={{ marginTop: 12, alignItems: 'center' }}
+        onPress={() => { setAuthMode(authMode === 'signup' ? 'signin' : 'signup'); setAuthError(null); }}
+      >
+        <Text style={{ color: '#6366F1' }}>
+          {authMode === 'signup' ? 'Already have an account? Sign in' : 'Need an account? Sign up'}
+        </Text>
       </TouchableOpacity>
     </View>
   );
@@ -721,10 +777,10 @@ export default function CaregiverDashboard() {
       <View style={[styles.card, { borderColor: '#FECACA', backgroundColor: '#FEF2F2' }]}>
         <Text style={[styles.cardTitle, { color: '#DC2626' }]}>Administrative Operations</Text>
         <Text style={styles.cardInstruction}>
-          Reset the portal status to simulate account onboarding and pairings from scratch.
+          Sign out of this caregiver account on this device.
         </Text>
         <TouchableOpacity style={styles.resetBtn} onPress={handleResetPortal}>
-          <Text style={styles.resetBtnText}>Reset Portal & Onboarding</Text>
+          <Text style={styles.resetBtnText}>Sign Out</Text>
         </TouchableOpacity>
       </View>
     </View>
@@ -744,7 +800,7 @@ export default function CaregiverDashboard() {
           </Text>
         </View>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-          <TouchableOpacity style={styles.signOutBtn} onPress={() => setIsOnboarded(false)}>
+          <TouchableOpacity style={styles.signOutBtn} onPress={handleResetPortal}>
             <Text style={styles.signOutText}>Sign Out</Text>
           </TouchableOpacity>
           <RoleSwitcher style={styles.headerRoleSwitcher} />
