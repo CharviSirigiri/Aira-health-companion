@@ -301,14 +301,17 @@ BEGIN
         RAISE EXCEPTION 'Must be signed in to claim a caregiver profile';
     END IF;
 
-    SELECT * INTO result FROM caregiver WHERE user_id = auth.uid();
+    SELECT * INTO result FROM caregiver WHERE user_id = auth.uid() LIMIT 1;
     IF FOUND THEN
         RETURN result;
     END IF;
 
+    -- ctid-scoped so this is safe even if duplicate unclaimed seed rows exist.
     UPDATE caregiver
     SET user_id = auth.uid(), name = caregiver_name, email = caregiver_email
-    WHERE elder_id = target_elder_id AND user_id IS NULL
+    WHERE ctid = (
+        SELECT ctid FROM caregiver WHERE elder_id = target_elder_id AND user_id IS NULL LIMIT 1
+    )
     RETURNING * INTO result;
 
     IF NOT FOUND THEN
@@ -335,14 +338,17 @@ BEGIN
         RAISE EXCEPTION 'Must be signed in to claim a doctor profile';
     END IF;
 
-    SELECT * INTO result FROM doctor WHERE user_id = auth.uid();
+    SELECT * INTO result FROM doctor WHERE user_id = auth.uid() LIMIT 1;
     IF FOUND THEN
         RETURN result;
     END IF;
 
+    -- ctid-scoped so this is safe even if duplicate unclaimed seed rows exist.
     UPDATE doctor
     SET user_id = auth.uid(), name = doctor_name
-    WHERE elder_id = target_elder_id AND user_id IS NULL
+    WHERE ctid = (
+        SELECT ctid FROM doctor WHERE elder_id = target_elder_id AND user_id IS NULL LIMIT 1
+    )
     RETURNING * INTO result;
 
     IF NOT FOUND THEN
@@ -395,20 +401,22 @@ VALUES (
     '{"wake": "07:00", "breakfast": "08:00", "lunch": "13:00", "tea": "17:00", "dinner": "20:00", "sleep": "22:00"}'::jsonb
 ) ON CONFLICT (id) DO NOTHING;
 
--- Insert Caregiver
-INSERT INTO caregiver (elder_id, name, email)
+-- Insert Caregiver (fixed id so reruns are idempotent via ON CONFLICT (id))
+INSERT INTO caregiver (id, elder_id, name, email)
 VALUES (
+    'd0eebc99-9c0b-4ef8-bb6d-6bb9bd380a44',
     'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11',
     'Susan''s Daughter',
     'daughter@example.com'
-) ON CONFLICT DO NOTHING;
+) ON CONFLICT (id) DO NOTHING;
 
--- Insert Doctor
-INSERT INTO doctor (elder_id, name)
+-- Insert Doctor (fixed id so reruns are idempotent via ON CONFLICT (id))
+INSERT INTO doctor (id, elder_id, name)
 VALUES (
+    'e0eebc99-9c0b-4ef8-bb6d-6bb9bd380a55',
     'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11',
     'Dr. Ramesh'
-) ON CONFLICT DO NOTHING;
+) ON CONFLICT (id) DO NOTHING;
 
 -- Insert Initial Prescription
 INSERT INTO prescription (id, elder_id, photo_url, status)
@@ -433,18 +441,20 @@ VALUES (
     TRUE
 ) ON CONFLICT (id) DO NOTHING;
 
--- Insert Reminder for Metformin
-INSERT INTO reminder (medication_id, anchor, spoken_text)
+-- Insert Reminder for Metformin (fixed id so reruns are idempotent)
+INSERT INTO reminder (id, medication_id, anchor, spoken_text)
 VALUES (
+    'f0eebc99-9c0b-4ef8-bb6d-6bb9bd380a66',
     'c0eebc99-9c0b-4ef8-bb6d-6bb9bd380a33',
     'breakfast',
     'Please take your Metformin 500mg now. It is a small round white pill.'
-) ON CONFLICT DO NOTHING;
+) ON CONFLICT (id) DO NOTHING;
 
--- Insert Initial Memory
-INSERT INTO memory (elder_id, type, content)
+-- Insert Initial Memory (fixed id so reruns are idempotent)
+INSERT INTO memory (id, elder_id, type, content)
 VALUES (
+    'a1eebc99-9c0b-4ef8-bb6d-6bb9bd380a77',
     'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11',
     'appointment',
     'Klinik Kesihatan appointment next Thursday at 10:00 AM'
-) ON CONFLICT DO NOTHING;
+) ON CONFLICT (id) DO NOTHING;

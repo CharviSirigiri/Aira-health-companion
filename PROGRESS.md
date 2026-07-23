@@ -123,6 +123,20 @@ calls server-side (task below).
   `saveDatabase`/`resetDatabase` shape, which no longer exists. Neither is
   wired into any npm script (checked `package.json`), so nothing breaks, but
   they should be rewritten or deleted before relying on them again.
+- [x] **Fixed a real seed-data duplication bug**, found during manual testing:
+  `caregiver`/`doctor`/`reminder`/`memory` seed `INSERT`s in `schema.sql` had
+  no fixed id and no working `ON CONFLICT` target, so every rerun of the
+  script (which we did several times while iterating on RLS/auth) inserted a
+  fresh duplicate row. Symptoms seen: `claim_caregiver` RPC error "query
+  returned more than one row", and 5 duplicate "APPOINTMENT" memory entries
+  on the doctor dashboard. Fixed by giving all seed rows fixed UUIDs (matching
+  the pattern `elder`/`prescription`/`medication` already used) so
+  `ON CONFLICT (id) DO NOTHING` actually works, and made `claim_caregiver`/
+  `claim_doctor` defensive via `ctid`-scoped updates in case duplicates exist
+  already. Verified end-to-end: caregiver sign-up -> claim -> onboarding
+  -> dashboard, and doctor sign-up -> claim -> patient review all work
+  against the real Supabase backend, with the "PATIENT-REPORTED LOGS — NOT
+  CLINICAL ADVICE" watermark (FR41) confirmed showing.
 
 ## 9. Testing
 
