@@ -1,6 +1,6 @@
 import { Medication, Memory, HealthLog } from './database';
 
-const GEMINI_OCR_MODEL_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent';
+const GEMINI_OCR_MODEL_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent';
 
 // Helper to get API key from environment
 function getGeminiApiKey(): string | null {
