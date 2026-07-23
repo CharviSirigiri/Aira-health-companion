@@ -19,7 +19,7 @@ import {
   getHealthLogs,
   getMemories,
   addMemory,
-  resetDatabase,
+  resetIntakeHistory,
   Medication,
   IntakeEvent,
   HealthLog,
@@ -209,7 +209,7 @@ export default function DoctorPortal() {
   const handleResetPatientData = async () => {
     if (!selectedPatientId) return;
     try {
-      await resetDatabase();
+      await resetIntakeHistory(selectedPatientId);
       await loadPatientData(selectedPatientId);
       alert('Patient intake history reset for evaluation simulation.');
     } catch (e) {

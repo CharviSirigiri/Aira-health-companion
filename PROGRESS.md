@@ -9,6 +9,9 @@ Legend: [ ] not started · [~] partial/in progress · [x] done
 
 ## 0. Foundation (do these first — everything else depends on them)
 
+Status: auth + real Supabase data layer are done. Remaining: move Gemini
+calls server-side (task below).
+
 - [x] **Real Supabase project credentials wired into `.env`** — project URL +
   anon key set (gitignored). `services/supabase.ts` client itself still needs to
   be imported/used by app code (currently dead code, see item below).
@@ -99,15 +102,27 @@ Legend: [ ] not started · [~] partial/in progress · [x] done
 
 ## 8. Data Model Consistency
 
-- [ ] Reconcile `supabase/schema.sql` (snake_case, e.g. `timestamp` column) vs
-  `services/database.ts` in-app schema (`at` field, `intake_events` array) —
-  no mapping layer exists between the two today.
-- [ ] Remove hardcoded single-elder ID (`'elder-susan'`) scattered across
-  `services/reminders.ts`, `services/voice.ts`, etc., once multi-elder support
-  is needed (schema already implies it via `caregiver.elder_id` FK).
-- [ ] Replace `require('./reminders')` inside async functions in
-  `services/database.ts` (circular-import workaround, lines ~282-286, 411-430)
-  with a cleaner pattern (event emitter or dynamic `import()`).
+- [x] `services/database.ts` now talks to real Supabase tables instead of a
+  local JSON blob (`localStorage`/`expo-file-system`). Field-name mapping
+  (`at` <-> `timestamp`) is handled internally so callers are unaffected.
+  `resolveElderId()` maps the legacy hardcoded `'elder-susan'` id to the real
+  pilot elder UUID, so callers didn't need to change.
+- [x] Removed the old full-database `resetDatabase()` (was safe on a local
+  mock, but would have wiped shared production data now that the backend is
+  real). Replaced with `resetIntakeHistory(elderId)`, scoped to just that
+  elder's intake events, matching what the doctor dashboard's reset button
+  actually claims to do.
+- [ ] Hardcoded single-elder ID (`'elder-susan'`) still scattered across
+  `services/reminders.ts`, `services/voice.ts`, `app/(tabs)/index.tsx` — fine
+  for the single-pilot-elder FYP scope; would need real multi-elder wiring
+  (pairing code -> elder_id resolution) if that becomes in-scope.
+- [ ] `require('./reminders')` inside async functions in `services/database.ts`
+  (circular-import workaround) — left as-is, same pattern as before.
+- [ ] **`scripts/test_modules.ts` and `scratch/test-reminders.js` are now
+  stale** — they hand-roll mocks of the old local-blob `loadDatabase`/
+  `saveDatabase`/`resetDatabase` shape, which no longer exists. Neither is
+  wired into any npm script (checked `package.json`), so nothing breaks, but
+  they should be rewritten or deleted before relying on them again.
 
 ## 9. Testing
 

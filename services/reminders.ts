@@ -1,6 +1,6 @@
 import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
-import { getElder, getReminders, loadDatabase } from './database';
+import { getElder, getReminders, getMedications, getReminderById, getMedicationById } from './database';
 
 /**
  * Request notification permissions from the user.
@@ -54,11 +54,12 @@ export async function syncScheduledReminders(): Promise<void> {
 
     // Load active reminders from the database
     const reminders = await getReminders('elder-susan');
-    const db = await loadDatabase();
+    const meds = await getMedications('elder-susan');
+    const medById = new Map(meds.map(m => [m.id, m]));
 
     for (const reminder of reminders) {
       // Find matching medication to get details
-      const med = db.medications.find(m => m.id === reminder.medication_id);
+      const med = medById.get(reminder.medication_id);
       if (!med || !med.confirmed) continue;
 
       const anchor = reminder.anchor as keyof typeof routine;
@@ -116,17 +117,16 @@ export async function triggerTestReminder(reminderId: string): Promise<void> {
       return;
     }
 
-    const db = await loadDatabase();
-    const reminder = db.reminders.find(r => r.id === reminderId);
+    const reminder = await getReminderById(reminderId);
     if (!reminder) {
       console.error(`Reminder ${reminderId} not found in DB`);
       return;
     }
 
-    const med = db.medications.find(m => m.id === reminder.medication_id);
+    const med = await getMedicationById(reminder.medication_id);
     if (!med) return;
 
-    const elder = db.elders[0];
+    const elder = await getElder('elder-susan');
     const language = elder ? elder.language : 'en';
 
     await Notifications.scheduleNotificationAsync({

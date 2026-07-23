@@ -57,10 +57,12 @@ CREATE TABLE IF NOT EXISTS medication (
     frequency TEXT NOT NULL,
     timing TEXT NOT NULL,
     appearance TEXT NOT NULL DEFAULT '',
+    appearance_photo_url TEXT,
     confidence REAL NOT NULL DEFAULT 1.0,
     confirmed BOOLEAN NOT NULL DEFAULT FALSE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
+ALTER TABLE medication ADD COLUMN IF NOT EXISTS appearance_photo_url TEXT;
 
 -- 6. Reminder Table
 CREATE TABLE IF NOT EXISTS reminder (
@@ -231,6 +233,15 @@ CREATE POLICY "intake_event_caregiver_doctor_access" ON intake_event FOR SELECT 
         WHERE p.elder_id IN (SELECT accessible_elder_ids())
     )
 );
+-- Allows logging an intake event while signed in as caregiver/doctor (the
+-- RoleSwitcher lets one session act as "elder" without signing out first).
+DROP POLICY IF EXISTS "intake_event_caregiver_doctor_write" ON intake_event;
+CREATE POLICY "intake_event_caregiver_doctor_write" ON intake_event FOR INSERT WITH CHECK (
+    medication_id IN (
+        SELECT m.id FROM medication m JOIN prescription p ON m.prescription_id = p.id
+        WHERE p.elder_id IN (SELECT accessible_elder_ids())
+    )
+);
 
 ALTER TABLE memory ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "Allow public read write on memory" ON memory;
@@ -247,6 +258,8 @@ DROP POLICY IF EXISTS "health_log_device_access" ON health_log;
 DROP POLICY IF EXISTS "health_log_caregiver_doctor_access" ON health_log;
 CREATE POLICY "health_log_device_access" ON health_log FOR ALL USING (auth.uid() IS NULL) WITH CHECK (auth.uid() IS NULL);
 CREATE POLICY "health_log_caregiver_doctor_access" ON health_log FOR SELECT USING (elder_id IN (SELECT accessible_elder_ids()));
+DROP POLICY IF EXISTS "health_log_caregiver_doctor_write" ON health_log;
+CREATE POLICY "health_log_caregiver_doctor_write" ON health_log FOR INSERT WITH CHECK (elder_id IN (SELECT accessible_elder_ids()));
 
 ALTER TABLE alert ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "Allow public read write on alert" ON alert;
@@ -254,6 +267,8 @@ DROP POLICY IF EXISTS "alert_device_access" ON alert;
 DROP POLICY IF EXISTS "alert_caregiver_doctor_access" ON alert;
 CREATE POLICY "alert_device_access" ON alert FOR ALL USING (auth.uid() IS NULL) WITH CHECK (auth.uid() IS NULL);
 CREATE POLICY "alert_caregiver_doctor_access" ON alert FOR SELECT USING (elder_id IN (SELECT accessible_elder_ids()));
+DROP POLICY IF EXISTS "alert_caregiver_doctor_write" ON alert;
+CREATE POLICY "alert_caregiver_doctor_write" ON alert FOR INSERT WITH CHECK (elder_id IN (SELECT accessible_elder_ids()));
 
 ALTER TABLE consent ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "Allow public read write on consent" ON consent;

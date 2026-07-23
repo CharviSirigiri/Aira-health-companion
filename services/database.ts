@@ -1,7 +1,12 @@
-import * as FileSystem from 'expo-file-system/legacy';
-import { Platform } from 'react-native';
+import { supabase } from './supabase';
 
-const DB_FILE_PATH = (FileSystem.documentDirectory || '') + 'health_companion_db.json';
+// Single pilot elder for the FYP scope. Call sites throughout the app pass
+// the legacy hardcoded id 'elder-susan'; we resolve it to the real Supabase
+// row id here so no caller needs to change.
+const PILOT_ELDER_ID = 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11';
+function resolveElderId(elderId: string): string {
+  return elderId === 'elder-susan' ? PILOT_ELDER_ID : elderId;
+}
 
 export interface Elder {
   id: string;
@@ -100,240 +105,113 @@ export interface Consent {
   granted_at: string;
 }
 
-export interface DatabaseSchema {
-  elders: Elder[];
-  caregivers: Caregiver[];
-  doctors: Doctor[];
-  prescriptions: Prescription[];
-  medications: Medication[];
-  reminders: Reminder[];
-  intake_events: IntakeEvent[];
-  memories: Memory[];
-  health_logs: HealthLog[];
-  alerts: Alert[];
-  consents: Consent[];
+function mapIntakeEvent(row: any): IntakeEvent {
+  return { id: row.id, medication_id: row.medication_id, taken: row.taken, at: row.timestamp };
 }
 
-const DEFAULT_DB: DatabaseSchema = {
-  elders: [
-    {
-      id: 'elder-susan',
-      name: 'Susan',
-      language: 'en',
-      routine_json: {
-        wake: '07:00',
-        breakfast: '08:00',
-        lunch: '13:00',
-        tea: '17:00',
-        dinner: '20:00',
-        sleep: '22:00',
-      },
-      persona: 'warm',
-      last_interaction: new Date().toISOString(),
-      created_at: new Date().toISOString(),
-    },
-  ],
-  caregivers: [
-    {
-      id: 'caregiver-daughter',
-      elder_id: 'elder-susan',
-      name: "Susan's Daughter",
-    },
-  ],
-  doctors: [
-    {
-      id: 'doctor-ramesh',
-      elder_id: 'elder-susan',
-      name: 'Dr. Ramesh',
-    },
-  ],
-  prescriptions: [],
-  medications: [
-    {
-      id: 'med-metformin',
-      prescription_id: 'initial',
-      name: 'Metformin',
-      dose: '500mg',
-      frequency: 'Once daily',
-      timing: 'Breakfast',
-      appearance: 'Small round white pill',
-      confidence: 1.0,
-      confirmed: true,
-    },
-  ],
-  reminders: [
-    {
-      id: 'rem-metformin',
-      medication_id: 'med-metformin',
-      anchor: 'breakfast',
-      spoken_text: 'Please take your Metformin 500mg now. It is a small round white pill.',
-    },
-  ],
-  intake_events: [
-    {
-      id: 'intake-1',
-      medication_id: 'med-metformin',
-      taken: true,
-      at: new Date(Date.now() - 24 * 3600 * 1000).toISOString(),
-    },
-  ],
-  memories: [
-    {
-      id: 'mem-1',
-      elder_id: 'elder-susan',
-      type: 'doctor-note',
-      content: 'Doctor Ramesh advised to reduce sugar intake and always take your diabetes medication after breakfast.',
-      created_at: new Date(Date.now() - 3 * 24 * 3600 * 1000).toISOString(),
-    },
-    {
-      id: 'mem-2',
-      elder_id: 'elder-susan',
-      type: 'appointment',
-      content: 'Next clinic appointment is scheduled for next Thursday at 10:00 AM at the Health Clinic.',
-      created_at: new Date(Date.now() - 1 * 24 * 3600 * 1000).toISOString(),
-    },
-  ],
-  health_logs: [
-    {
-      id: 'log-1',
-      elder_id: 'elder-susan',
-      type: 'symptom',
-      content: 'Felt slightly dizzy in the afternoon.',
-      significant: true,
-      at: new Date(Date.now() - 2 * 24 * 3600 * 1000).toISOString(),
-    },
-  ],
-  alerts: [],
-  consents: [
-    {
-      id: 'consent-1',
-      elder_id: 'elder-susan',
-      scope: 'all',
-      granted_at: new Date().toISOString(),
-    },
-  ],
-};
-
-let cachedDb: DatabaseSchema | null = null;
-
-// Synchronous operations for simplicity, but reads from disk when needed
-export async function loadDatabase(): Promise<DatabaseSchema> {
-  if (cachedDb) return cachedDb;
-
-  try {
-    if (Platform.OS === 'web') {
-      const data = localStorage.getItem('health_companion_db');
-      if (data) {
-        cachedDb = JSON.parse(data);
-        return cachedDb!;
-      }
-    } else {
-      const fileInfo = await FileSystem.getInfoAsync(DB_FILE_PATH);
-      if (fileInfo.exists) {
-        const data = await FileSystem.readAsStringAsync(DB_FILE_PATH);
-        cachedDb = JSON.parse(data);
-        return cachedDb!;
-      }
-    }
-  } catch (error) {
-    console.error('Error loading database, falling back to default:', error);
-  }
-
-  // Populate default if not found
-  cachedDb = JSON.parse(JSON.stringify(DEFAULT_DB));
-  await saveDatabase(cachedDb!);
-  return cachedDb!;
+function mapHealthLog(row: any): HealthLog {
+  return { id: row.id, elder_id: row.elder_id, type: row.type, content: row.content, significant: row.significant, at: row.timestamp };
 }
 
-export async function saveDatabase(db: DatabaseSchema): Promise<void> {
-  cachedDb = db;
-  try {
-    const dataStr = JSON.stringify(db, null, 2);
-    if (Platform.OS === 'web') {
-      localStorage.setItem('health_companion_db', dataStr);
-    } else {
-      await FileSystem.writeAsStringAsync(DB_FILE_PATH, dataStr);
-    }
-  } catch (error) {
-    console.error('Error saving database:', error);
-  }
-}
-
-export async function resetDatabase(): Promise<void> {
-  cachedDb = JSON.parse(JSON.stringify(DEFAULT_DB));
-  await saveDatabase(cachedDb!);
+function mapAlert(row: any): Alert {
+  return { id: row.id, elder_id: row.elder_id, trigger: row.trigger, notified: row.notified, at: row.timestamp };
 }
 
 // Database helper functions (API interface)
 
 export async function getElder(elderId: string): Promise<Elder | undefined> {
-  const db = await loadDatabase();
-  return db.elders.find(e => e.id === elderId);
+  const { data, error } = await supabase.from('elder').select('*').eq('id', resolveElderId(elderId)).maybeSingle();
+  if (error) throw error;
+  return data ?? undefined;
 }
 
 export async function updateElder(elder: Elder): Promise<void> {
-  const db = await loadDatabase();
-  const idx = db.elders.findIndex(e => e.id === elder.id);
-  if (idx !== -1) {
-    db.elders[idx] = elder;
-    await saveDatabase(db);
-    
-    try {
-      const { syncScheduledReminders } = require('./reminders');
-      await syncScheduledReminders();
-    } catch (error) {
-      console.error('Failed to sync scheduled reminders after updateElder:', error);
-    }
+  const { error } = await supabase
+    .from('elder')
+    .update({ language: elder.language, persona: elder.persona, routine_json: elder.routine_json })
+    .eq('id', elder.id);
+  if (error) throw error;
+
+  try {
+    const { syncScheduledReminders } = require('./reminders');
+    await syncScheduledReminders();
+  } catch (error) {
+    console.error('Failed to sync scheduled reminders after updateElder:', error);
   }
 }
 
 export async function getMedications(elderId: string): Promise<Medication[]> {
-  const db = await loadDatabase();
-  // Join prescription and medication to filter by elder_id
-  const prescriptions = db.prescriptions.filter(p => p.elder_id === elderId);
-  const pIds = new Set(prescriptions.map(p => p.id));
-  
-  // Also include the 'initial' medications that are always visible
-  return db.medications.filter(m => m.prescription_id === 'initial' || pIds.has(m.prescription_id));
+  const eid = resolveElderId(elderId);
+  const { data: prescriptions, error: presError } = await supabase.from('prescription').select('id').eq('elder_id', eid);
+  if (presError) throw presError;
+  const presIds = (prescriptions || []).map(p => p.id);
+  if (presIds.length === 0) return [];
+
+  const { data, error } = await supabase.from('medication').select('*').in('prescription_id', presIds);
+  if (error) throw error;
+  return data || [];
+}
+
+export async function getMedicationById(medicationId: string): Promise<Medication | undefined> {
+  const { data, error } = await supabase.from('medication').select('*').eq('id', medicationId).maybeSingle();
+  if (error) throw error;
+  return data ?? undefined;
+}
+
+export async function getReminderById(reminderId: string): Promise<Reminder | undefined> {
+  const { data, error } = await supabase.from('reminder').select('*').eq('id', reminderId).maybeSingle();
+  if (error) throw error;
+  return data ?? undefined;
 }
 
 export async function addPrescription(prescription: Omit<Prescription, 'id' | 'created_at'>): Promise<Prescription> {
-  const db = await loadDatabase();
-  const newPrescription: Prescription = {
-    ...prescription,
-    id: `pres-${Math.random().toString(36).substr(2, 9)}`,
-    created_at: new Date().toISOString()
-  };
-  db.prescriptions.push(newPrescription);
-  await saveDatabase(db);
-  return newPrescription;
+  const { data, error } = await supabase
+    .from('prescription')
+    .insert({
+      elder_id: resolveElderId(prescription.elder_id),
+      photo_url: prescription.photo_url,
+      raw_parse_json: prescription.raw_parse_json,
+      status: prescription.status,
+    })
+    .select()
+    .single();
+  if (error) throw error;
+  return data;
 }
 
 export async function addMedication(med: Omit<Medication, 'id' | 'confirmed'> & { confirmed?: boolean }): Promise<Medication> {
-  const db = await loadDatabase();
-  const newMed: Medication = {
-    ...med,
-    id: `med-${Math.random().toString(36).substr(2, 9)}`,
-    confirmed: med.confirmed ?? false
-  };
-  db.medications.push(newMed);
-  await saveDatabase(db);
-  return newMed;
+  const { data, error } = await supabase
+    .from('medication')
+    .insert({
+      prescription_id: med.prescription_id,
+      name: med.name,
+      dose: med.dose,
+      frequency: med.frequency,
+      timing: med.timing,
+      appearance: med.appearance || '',
+      confidence: med.confidence,
+      confirmed: med.confirmed ?? false,
+    })
+    .select()
+    .single();
+  if (error) throw error;
+  return data;
 }
 
 export async function getReminders(elderId: string): Promise<Reminder[]> {
-  const db = await loadDatabase();
   const meds = await getMedications(elderId);
-  const medIds = new Set(meds.map(m => m.id));
-  return db.reminders.filter(r => medIds.has(r.medication_id));
+  const medIds = meds.map(m => m.id);
+  if (medIds.length === 0) return [];
+  const { data, error } = await supabase.from('reminder').select('*').in('medication_id', medIds);
+  if (error) throw error;
+  return data || [];
 }
 
 // THE SAFETY GATE, enforced by the database service (AD-3):
 // a reminder cannot be created for a medicine that isn't confirmed.
+// (Also enforced at the database layer by the trigger_enforce_reminder_confirmation trigger.)
 export async function addReminder(reminder: Omit<Reminder, 'id'>): Promise<Reminder> {
-  const db = await loadDatabase();
-  
-  const med = db.medications.find(m => m.id === reminder.medication_id);
+  const med = await getMedicationById(reminder.medication_id);
   if (!med) {
     throw new Error('Medication not found');
   }
@@ -341,31 +219,44 @@ export async function addReminder(reminder: Omit<Reminder, 'id'>): Promise<Remin
     throw new Error('Cannot create a reminder for an unconfirmed medication');
   }
 
-  const newReminder: Reminder = {
-    ...reminder,
-    id: `rem-${Math.random().toString(36).substr(2, 9)}`
-  };
-  db.reminders.push(newReminder);
-  await saveDatabase(db);
-  return newReminder;
+  const { data, error } = await supabase
+    .from('reminder')
+    .insert({ medication_id: reminder.medication_id, anchor: reminder.anchor, spoken_text: reminder.spoken_text })
+    .select()
+    .single();
+  if (error) throw error;
+  return data;
 }
 
 export async function deleteReminder(reminderId: string): Promise<void> {
-  const db = await loadDatabase();
-  db.reminders = db.reminders.filter(r => r.id !== reminderId);
-  await saveDatabase(db);
+  const { error } = await supabase.from('reminder').delete().eq('id', reminderId);
+  if (error) throw error;
 }
 
 export async function confirmMedication(medicationId: string, appearance: string, appearancePhotoUrl?: string): Promise<void> {
-  const db = await loadDatabase();
-  const med = db.medications.find(m => m.id === medicationId);
+  const med = await getMedicationById(medicationId);
   if (!med) throw new Error('Medication not found');
 
-  med.confirmed = true;
-  med.appearance = appearance;
-  if (appearancePhotoUrl) {
-    med.appearance_photo_url = appearancePhotoUrl;
-  }
+  const { error: updateError } = await supabase
+    .from('medication')
+    .update({ confirmed: true, appearance, appearance_photo_url: appearancePhotoUrl ?? null })
+    .eq('id', medicationId);
+  if (updateError) throw updateError;
+
+  // Resolve the elder's language for the spoken reminder text.
+  const { data: presRow, error: presError } = await supabase
+    .from('prescription')
+    .select('elder_id')
+    .eq('id', med.prescription_id)
+    .single();
+  if (presError) throw presError;
+
+  const { data: elderRow, error: elderError } = await supabase
+    .from('elder')
+    .select('language')
+    .eq('id', presRow.elder_id)
+    .single();
+  if (elderError) throw elderError;
 
   // Auto-generate reminders based on timing/frequency
   // AD-4: Pill appearance is written only via the caregiver confirmation path
@@ -390,23 +281,18 @@ export async function confirmMedication(medicationId: string, appearance: string
     }
   }
 
-  const spokenText = (db.elders[0]?.language === 'ms')
+  const spokenText = (elderRow.language === 'ms')
     ? `Sila ambil ubat ${med.name} (${med.dose}) anda sekarang. Ubat ini adalah ${appearance}.`
     : `Please take your ${med.name} (${med.dose}) now. It is a ${appearance}.`;
 
-  // We delete existing reminders for this med if any, and create a new one
-  db.reminders = db.reminders.filter(r => r.medication_id !== medicationId);
-  
-  // Create reminder under safety constraint (verified confirmed = true in DB)
-  const newReminder: Reminder = {
-    id: `rem-${Math.random().toString(36).substr(2, 9)}`,
-    medication_id: medicationId,
-    anchor,
-    spoken_text: spokenText
-  };
-  db.reminders.push(newReminder);
-  
-  await saveDatabase(db);
+  // Replace any existing reminders for this medication with a fresh one.
+  const { error: deleteError } = await supabase.from('reminder').delete().eq('medication_id', medicationId);
+  if (deleteError) throw deleteError;
+
+  const { error: insertError } = await supabase
+    .from('reminder')
+    .insert({ medication_id: medicationId, anchor, spoken_text: spokenText });
+  if (insertError) throw insertError;
 
   try {
     const { syncScheduledReminders } = require('./reminders');
@@ -417,10 +303,9 @@ export async function confirmMedication(medicationId: string, appearance: string
 }
 
 export async function rejectMedication(medicationId: string): Promise<void> {
-  const db = await loadDatabase();
-  db.medications = db.medications.filter(m => m.id !== medicationId);
-  db.reminders = db.reminders.filter(r => r.medication_id !== medicationId);
-  await saveDatabase(db);
+  // reminder/intake_event rows cascade-delete via their medication_id FK.
+  const { error } = await supabase.from('medication').delete().eq('id', medicationId);
+  if (error) throw error;
 
   try {
     const { syncScheduledReminders } = require('./reminders');
@@ -431,81 +316,96 @@ export async function rejectMedication(medicationId: string): Promise<void> {
 }
 
 export async function addIntakeEvent(event: Omit<IntakeEvent, 'id' | 'at'>): Promise<IntakeEvent> {
-  const db = await loadDatabase();
-  const newEvent: IntakeEvent = {
-    ...event,
-    id: `intake-${Math.random().toString(36).substr(2, 9)}`,
-    at: new Date().toISOString()
-  };
-  db.intake_events.push(newEvent);
-  await saveDatabase(db);
-  return newEvent;
+  const { data, error } = await supabase
+    .from('intake_event')
+    .insert({ medication_id: event.medication_id, taken: event.taken })
+    .select()
+    .single();
+  if (error) throw error;
+  return mapIntakeEvent(data);
 }
 
 export async function getIntakeEvents(elderId: string): Promise<IntakeEvent[]> {
-  const db = await loadDatabase();
   const meds = await getMedications(elderId);
-  const medIds = new Set(meds.map(m => m.id));
-  return db.intake_events.filter(e => medIds.has(e.medication_id));
+  const medIds = meds.map(m => m.id);
+  if (medIds.length === 0) return [];
+  const { data, error } = await supabase.from('intake_event').select('*').in('medication_id', medIds);
+  if (error) throw error;
+  return (data || []).map(mapIntakeEvent);
 }
 
 export async function getMemories(elderId: string): Promise<Memory[]> {
-  const db = await loadDatabase();
-  return db.memories.filter(m => m.elder_id === elderId).sort((a, b) => b.created_at.localeCompare(a.created_at));
+  const { data, error } = await supabase
+    .from('memory')
+    .select('*')
+    .eq('elder_id', resolveElderId(elderId))
+    .order('created_at', { ascending: false });
+  if (error) throw error;
+  return data || [];
 }
 
 export async function addMemory(memory: Omit<Memory, 'id' | 'created_at'>): Promise<Memory> {
-  const db = await loadDatabase();
-  const newMemory: Memory = {
-    ...memory,
-    id: `mem-${Math.random().toString(36).substr(2, 9)}`,
-    created_at: new Date().toISOString()
-  };
-  db.memories.push(newMemory);
-  await saveDatabase(db);
-  return newMemory;
+  const { data, error } = await supabase
+    .from('memory')
+    .insert({ elder_id: resolveElderId(memory.elder_id), type: memory.type, content: memory.content })
+    .select()
+    .single();
+  if (error) throw error;
+  return data;
 }
 
 export async function getHealthLogs(elderId: string): Promise<HealthLog[]> {
-  const db = await loadDatabase();
-  return db.health_logs.filter(l => l.elder_id === elderId).sort((a, b) => b.at.localeCompare(a.at));
+  const { data, error } = await supabase
+    .from('health_log')
+    .select('*')
+    .eq('elder_id', resolveElderId(elderId))
+    .order('timestamp', { ascending: false });
+  if (error) throw error;
+  return (data || []).map(mapHealthLog);
 }
 
 export async function addHealthLog(log: Omit<HealthLog, 'id' | 'at'>): Promise<HealthLog> {
-  const db = await loadDatabase();
-  const newLog: HealthLog = {
-    ...log,
-    id: `log-${Math.random().toString(36).substr(2, 9)}`,
-    at: new Date().toISOString()
-  };
-  db.health_logs.push(newLog);
-  await saveDatabase(db);
-  return newLog;
+  const { data, error } = await supabase
+    .from('health_log')
+    .insert({ elder_id: resolveElderId(log.elder_id), type: log.type, content: log.content, significant: log.significant })
+    .select()
+    .single();
+  if (error) throw error;
+  return mapHealthLog(data);
 }
 
 export async function getAlerts(elderId: string): Promise<Alert[]> {
-  const db = await loadDatabase();
-  return db.alerts.filter(a => a.elder_id === elderId).sort((a, b) => b.at.localeCompare(a.at));
+  const { data, error } = await supabase
+    .from('alert')
+    .select('*')
+    .eq('elder_id', resolveElderId(elderId))
+    .order('timestamp', { ascending: false });
+  if (error) throw error;
+  return (data || []).map(mapAlert);
 }
 
 export async function addAlert(alert: Omit<Alert, 'id' | 'at' | 'notified'>): Promise<Alert> {
-  const db = await loadDatabase();
-  const newAlert: Alert = {
-    ...alert,
-    id: `alert-${Math.random().toString(36).substr(2, 9)}`,
-    notified: false,
-    at: new Date().toISOString()
-  };
-  db.alerts.push(newAlert);
-  await saveDatabase(db);
-  return newAlert;
+  const { data, error } = await supabase
+    .from('alert')
+    .insert({ elder_id: resolveElderId(alert.elder_id), trigger: alert.trigger, notified: false })
+    .select()
+    .single();
+  if (error) throw error;
+  return mapAlert(data);
 }
 
 export async function markAlertNotified(alertId: string): Promise<void> {
-  const db = await loadDatabase();
-  const alert = db.alerts.find(a => a.id === alertId);
-  if (alert) {
-    alert.notified = true;
-    await saveDatabase(db);
-  }
+  const { error } = await supabase.from('alert').update({ notified: true }).eq('id', alertId);
+  if (error) throw error;
+}
+
+// Clears intake history for an elder's medications (evaluation/demo convenience).
+// Scoped to intake_event only — this is a shared production database now, so a
+// full-database wipe (as the old local-mock resetDatabase() did) is no longer safe.
+export async function resetIntakeHistory(elderId: string): Promise<void> {
+  const meds = await getMedications(elderId);
+  const medIds = meds.map(m => m.id);
+  if (medIds.length === 0) return;
+  const { error } = await supabase.from('intake_event').delete().in('medication_id', medIds);
+  if (error) throw error;
 }
