@@ -72,6 +72,11 @@ export async function configureVoicePlaybackAudioMode(): Promise<void> {
   try {
     await setAudioModeAsync({
       playsInSilentMode: true,
+      // setAudioModeAsync merges with prior state, so allowsRecording must be
+      // reset explicitly here — otherwise it persists from the last recording
+      // session and keeps iOS in PlayAndRecord mode, which routes to the
+      // earpiece by default regardless of shouldRouteThroughEarpiece.
+      allowsRecording: false,
       shouldRouteThroughEarpiece: false,
       interruptionMode: 'duckOthers',
     });
@@ -128,6 +133,10 @@ export async function speakCompanionText(text: string, language: Language): Prom
     rate,
     voice,
     volume: 1.0,
-    useApplicationAudioSession: false,
+    // Reuse the app's own audio session (configured above via
+    // configureVoicePlaybackAudioMode, shouldRouteThroughEarpiece: false)
+    // instead of iOS's separate speech session, which otherwise ignores
+    // that routing and defaults to the earpiece after a recording session.
+    useApplicationAudioSession: true,
   });
 }
