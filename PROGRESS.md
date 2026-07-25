@@ -9,8 +9,8 @@ Legend: [ ] not started · [~] partial/in progress · [x] done
 
 ## 0. Foundation (do these first — everything else depends on them)
 
-Status: auth + real Supabase data layer are done. Remaining: move Gemini
-calls server-side (task below).
+Status: **all foundation items complete.** Auth, real Supabase data layer,
+and server-side Gemini proxy are all done and verified end-to-end.
 
 - [x] **Real Supabase project credentials wired into `.env`** — project URL +
   anon key set (gitignored). `services/supabase.ts` client itself still needs to
@@ -26,9 +26,16 @@ calls server-side (task below).
 - [ ] Confirmation-gate trigger (`check_medication_confirmed_before_reminder`)
   applied but not yet exercised by real app traffic (app doesn't talk to
   Supabase yet — see Section 8 migration item).
-- [ ] **Move Gemini calls server-side** — `EXPO_PUBLIC_GEMINI_API_KEY` is bundled
-  client-side (`services/gemini.ts`). Acceptance: key lives only in a Supabase Edge
-  Function; client calls the function, not Gemini directly.
+- [x] **Moved Gemini calls server-side** — added `supabase/functions/gemini-proxy`
+  (Deno Edge Function), deployed via Supabase CLI, with `GEMINI_API_KEY` set as
+  a server-only secret (`supabase secrets set`). `services/gemini.ts` now calls
+  `supabase.functions.invoke('gemini-proxy', ...)` instead of fetching Gemini
+  directly; `EXPO_PUBLIC_GEMINI_API_KEY` removed from `.env`/`.env.example`
+  entirely. Added an explicit `EXPO_PUBLIC_GEMINI_SIMULATION` toggle (decoupled
+  from key presence, since the client no longer knows if a key is configured)
+  to still support demoing offline. Verified end-to-end via curl directly
+  against the deployed function and via the live app (Gemini 2.5 Flash
+  responded correctly through the proxy).
 - [x] **Real auth for caregiver/doctor** — `services/auth.ts` added, wired into
   `app/caregiver.tsx` and `app/doctor.tsx` with real Supabase email/password
   sign-up/sign-in, replacing the old local-state pairing-code/PIN gates.

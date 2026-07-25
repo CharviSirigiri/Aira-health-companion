@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "aira-web",
+      "runtimeExecutable": "C:\\UNIVERSITY\\Aira-health-companion\\.claude\\run-web.cmd",
+      "runtimeArgs": [],
+      "port": 8081
+    }
+  ]
+}

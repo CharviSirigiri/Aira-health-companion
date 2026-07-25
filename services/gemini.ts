@@ -1,16 +1,19 @@
+import { supabase } from './supabase';
 import { Medication, Memory, HealthLog } from './database';
 
-const GEMINI_OCR_MODEL_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent';
+// AD-2: the Gemini API key lives only in the gemini-proxy Edge Function's
+// secrets — the client never sees it. This just forwards the request body
+// Gemini expects and gets back Gemini's raw response (or an embedded error).
+async function callGemini(requestBody: object): Promise<any> {
+  const { data, error } = await supabase.functions.invoke('gemini-proxy', { body: requestBody });
+  if (error) throw error;
+  if (data?.error) throw new Error(`Gemini API error: ${data.error.code ?? ''} ${data.error.message ?? JSON.stringify(data.error)}`);
+  return data;
+}
 
-// Helper to get API key from environment
-function getGeminiApiKey(): string | null {
-  // Check if standard expo environment variable exists
-  if (typeof process !== 'undefined' && process.env) {
-    if (process.env.EXPO_PUBLIC_GEMINI_API_KEY) {
-      return process.env.EXPO_PUBLIC_GEMINI_API_KEY.trim();
-    }
-  }
-  return null;
+// Explicit, non-secret toggle for demoing without hitting the real API.
+function isSimulationMode(): boolean {
+  return typeof process !== 'undefined' && process.env?.EXPO_PUBLIC_GEMINI_SIMULATION === 'true';
 }
 
 /**
@@ -21,10 +24,8 @@ function getGeminiApiKey(): string | null {
 export async function parsePrescription(imageBase64: string): Promise<{
   medications: Omit<Medication, 'id' | 'confirmed' | 'prescription_id' | 'appearance'>[];
 }> {
-  const apiKey = getGeminiApiKey();
-
-  if (!apiKey) {
-    console.log('No Gemini API key found, running in SIMULATION mode.');
+  if (isSimulationMode()) {
+    console.log('EXPO_PUBLIC_GEMINI_SIMULATION=true, running in SIMULATION mode.');
     // Simulated prescription reading response
     await new Promise(resolve => setTimeout(resolve, 2000)); // Simulate latency
     return {
@@ -96,17 +97,7 @@ export async function parsePrescription(imageBase64: string): Promise<{
       },
     };
 
-    const response = await fetch(`${GEMINI_OCR_MODEL_URL}?key=${apiKey}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(requestBody),
-    });
-
-    if (!response.ok) {
-      throw new Error(`Gemini API error: ${response.status} ${response.statusText}`);
-    }
-
-    const result = await response.json();
+    const result = await callGemini(requestBody);
     const textResponse = result.candidates?.[0]?.content?.parts?.[0]?.text;
     if (!textResponse) throw new Error('Empty response from Gemini');
 
@@ -128,10 +119,8 @@ export async function transcribeVoiceMessage(
 ): Promise<{
   transcript: string;
 }> {
-  const apiKey = getGeminiApiKey();
-
-  if (!apiKey) {
-    console.log(`No Gemini API key found, running voice transcription in ${language.toUpperCase()} SIMULATION mode.`);
+  if (isSimulationMode()) {
+    console.log(`EXPO_PUBLIC_GEMINI_SIMULATION=true, running voice transcription in ${language.toUpperCase()} SIMULATION mode.`);
     await new Promise(resolve => setTimeout(resolve, 1200));
     return {
       transcript: language === 'ms'
@@ -144,41 +133,32 @@ export async function transcribeVoiceMessage(
     ? 'Transkripsikan rakaman suara ini dengan tepat. Pulangkan hanya JSON dengan medan transcript. Kekalkan bahasa asal pengguna. Jangan jawab soalan pengguna.'
     : 'Transcribe this voice recording faithfully. Return only JSON with a transcript field. Keep the original language. Do not answer the user yet.';
 
-  const response = await fetch(`${GEMINI_OCR_MODEL_URL}?key=${apiKey}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      contents: [
-        {
-          parts: [
-            { text: prompt },
-            {
-              inlineData: {
-                mimeType,
-                data: audioBase64,
-              },
+  const result = await callGemini({
+    contents: [
+      {
+        parts: [
+          { text: prompt },
+          {
+            inlineData: {
+              mimeType,
+              data: audioBase64,
             },
-          ],
-        },
-      ],
-      generationConfig: {
-        responseMimeType: 'application/json',
-        responseSchema: {
-          type: 'OBJECT',
-          properties: {
-            transcript: { type: 'STRING' },
           },
-          required: ['transcript'],
-        },
+        ],
       },
-    }),
+    ],
+    generationConfig: {
+      responseMimeType: 'application/json',
+      responseSchema: {
+        type: 'OBJECT',
+        properties: {
+          transcript: { type: 'STRING' },
+        },
+        required: ['transcript'],
+      },
+    },
   });
 
-  if (!response.ok) {
-    throw new Error(`Gemini API error: ${response.status} ${response.statusText}`);
-  }
-
-  const result = await response.json();
   const textResponse = result.candidates?.[0]?.content?.parts?.[0]?.text;
   if (!textResponse) throw new Error('Empty transcription response from Gemini');
 
@@ -224,8 +204,6 @@ export async function generateCompanionReply(
       raisedAlert: `User explicitly requested distress contact: "${userText}"`
     };
   }
-
-  const apiKey = getGeminiApiKey();
 
   // Create context from confirmed medications and memories based on active language
   const medContext = medications
@@ -284,8 +262,8 @@ Never fabricate medication information not present in the list above.`;
 
   const systemInstruction = language === 'ms' ? systemInstructionMs : systemInstructionEn;
 
-  if (!apiKey) {
-    console.log(`No Gemini API key found, running converse in ${language.toUpperCase()} SIMULATION mode.`);
+  if (isSimulationMode()) {
+    console.log(`EXPO_PUBLIC_GEMINI_SIMULATION=true, running converse in ${language.toUpperCase()} SIMULATION mode.`);
     await new Promise(resolve => setTimeout(resolve, 1500)); // Simulate latency
 
     let replyText = language === 'ms'
@@ -347,22 +325,12 @@ Never fabricate medication information not present in the list above.`;
       parts: [{ text: userText }],
     });
 
-    const response = await fetch(`${GEMINI_OCR_MODEL_URL}?key=${apiKey}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents,
-        systemInstruction: {
-          parts: [{ text: systemInstruction }],
-        },
-      }),
+    const result = await callGemini({
+      contents,
+      systemInstruction: {
+        parts: [{ text: systemInstruction }],
+      },
     });
-
-    if (!response.ok) {
-      throw new Error(`Gemini API error: ${response.status} ${response.statusText}`);
-    }
-
-    const result = await response.json();
     const replyText = result.candidates?.[0]?.content?.parts?.[0]?.text || '';
 
 
