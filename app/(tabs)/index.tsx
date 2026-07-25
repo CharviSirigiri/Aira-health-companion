@@ -7,7 +7,7 @@ import { RoleSwitcher } from '@/components/RoleSwitcher';
 import { Shadows, Radii } from '@/constants/theme';
 import { speakCompanionText } from '@/services/voice';
 import { useTranslation } from '@/services/localization';
-import * as FileSystem from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy';
 import * as Notifications from 'expo-notifications';
 import {
   getMedications,
