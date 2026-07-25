@@ -50,15 +50,22 @@ and server-side Gemini proxy are all done and verified end-to-end.
 
 ## 1. Voice & Conversation
 
-- [~] Voice conversation loop — works via `services/gemini.ts` `generateCompanionReply`,
-  but calls Gemini directly from client (see Foundation).
-- [~] STT — web works (`hooks/useSpeechToText.ts` via `webkitSpeechRecognition`);
-  **native/Android is a mock** (lines 81, 94 just flip `isListening`). Needs a real
-  on-device or Gemini-audio path for mobile.
+- [x] Voice conversation loop — `services/gemini.ts` `generateCompanionReply`,
+  now via the `gemini-proxy` Edge Function (see Foundation).
+- [x] STT — **corrected an earlier wrong finding**: native/Android is NOT
+  actually mocked. `app/(tabs)/index.tsx` `handleMicPress` only calls
+  `useSpeechToText`'s browser-API path when `Platform.OS === 'web' &&
+  stt.isSupported`; on native (and on web browsers without
+  `webkitSpeechRecognition`, e.g. Firefox) it goes through
+  `useVoiceRecorder` (real `expo-audio` recording) -> `processRecordedVoice`
+  -> `transcribeVoiceMessage` (real Gemini audio transcription, now
+  proxied). The two paths are mutually exclusive by design (web vs
+  native/fallback), not a bug. Removed genuinely dead "mock" fallback code
+  in `hooks/useSpeechToText.ts` (`startListening`/`stopListening`'s `else`
+  branches could never actually fire given how the caller gates on
+  `isSupported`). Still needs a live on-device test via Expo Go to confirm
+  the record -> transcribe -> reply round trip actually works end to end.
 - [x] TTS — `services/voice.ts` via `expo-speech`, persona-based pitch/rate.
-- [~] Two parallel STT paths exist (`hooks/useSpeechToText.ts` and
-  `services/gemini.ts` `transcribeVoiceMessage` / `hooks/useVoiceRecorder.ts`) —
-  needs consolidation to one path before shipping native STT.
 
 ## 2. Hero Flow: Rx Photo → Confirm → Schedule
 

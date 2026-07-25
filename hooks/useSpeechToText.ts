@@ -69,30 +69,24 @@ export function useSpeechToText(languageCode: 'en-US' | 'ms-MY' = 'ms-MY'): UseS
     };
   }, [isSupported, languageCode]);
 
+  // Callers must check isSupported before invoking these — on native or
+  // unsupported browsers, voice input goes through useVoiceRecorder instead.
   const startListening = () => {
-    if (isSupported && recognitionRef.current) {
-      setTranscript('');
-      try {
-        recognitionRef.current.start();
-      } catch (e) {
-        console.error('Failed to start speech recognition:', e);
-      }
-    } else {
-      // Mock start for native/unsupported
-      setIsListening(true);
+    if (!isSupported || !recognitionRef.current) return;
+    setTranscript('');
+    try {
+      recognitionRef.current.start();
+    } catch (e) {
+      console.error('Failed to start speech recognition:', e);
     }
   };
 
   const stopListening = () => {
-    if (isSupported && recognitionRef.current) {
-      try {
-        recognitionRef.current.stop();
-      } catch (e) {
-        // ignore
-      }
-    } else {
-      // Mock stop
-      setIsListening(false);
+    if (!isSupported || !recognitionRef.current) return;
+    try {
+      recognitionRef.current.stop();
+    } catch (e) {
+      // ignore
     }
   };
 
