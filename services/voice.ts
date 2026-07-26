@@ -1,7 +1,131 @@
 import * as Speech from 'expo-speech';
-import { setAudioModeAsync } from 'expo-audio';
+import { setAudioModeAsync, createAudioPlayer, AudioPlayer } from 'expo-audio';
+import * as FileSystem from 'expo-file-system/legacy';
 import type { Language } from './localization';
 import { getElder } from './database';
+import { synthesizeSpeech } from './gemini';
+
+// Gemini TTS prebuilt voices, picked to match each persona's character.
+const PERSONA_VOICE_MAP: Record<string, string> = {
+  warm: 'Sulafat', // "Warm"
+  friendly: 'Achird', // "Friendly"
+  patient: 'Vindemiatrix', // "Gentle"
+};
+
+const BASE64_CHARS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+
+function base64ToUint8Array(base64: string): Uint8Array {
+  const cleaned = base64.replace(/[^A-Za-z0-9+/]/g, '');
+  const byteLength = Math.floor((cleaned.length * 6) / 8);
+  const bytes = new Uint8Array(byteLength);
+  let byteIndex = 0;
+  let bits = 0;
+  let bitCount = 0;
+  for (let i = 0; i < cleaned.length; i++) {
+    const value = BASE64_CHARS.indexOf(cleaned[i]);
+    if (value === -1) continue;
+    bits = (bits << 6) | value;
+    bitCount += 6;
+    if (bitCount >= 8) {
+      bitCount -= 8;
+      bytes[byteIndex++] = (bits >> bitCount) & 0xff;
+    }
+  }
+  return bytes;
+}
+
+function uint8ArrayToBase64(bytes: Uint8Array): string {
+  let result = '';
+  let i = 0;
+  for (; i + 2 < bytes.length; i += 3) {
+    const chunk = (bytes[i] << 16) | (bytes[i + 1] << 8) | bytes[i + 2];
+    result += BASE64_CHARS[(chunk >> 18) & 0x3f] + BASE64_CHARS[(chunk >> 12) & 0x3f] +
+      BASE64_CHARS[(chunk >> 6) & 0x3f] + BASE64_CHARS[chunk & 0x3f];
+  }
+  const remaining = bytes.length - i;
+  if (remaining === 1) {
+    const chunk = bytes[i] << 16;
+    result += BASE64_CHARS[(chunk >> 18) & 0x3f] + BASE64_CHARS[(chunk >> 12) & 0x3f] + '==';
+  } else if (remaining === 2) {
+    const chunk = (bytes[i] << 16) | (bytes[i + 1] << 8);
+    result += BASE64_CHARS[(chunk >> 18) & 0x3f] + BASE64_CHARS[(chunk >> 12) & 0x3f] +
+      BASE64_CHARS[(chunk >> 6) & 0x3f] + '=';
+  }
+  return result;
+}
+
+// Gemini TTS returns headerless raw 16-bit PCM — wrap it in a WAV header so
+// expo-audio (which expects a recognizable container format) can play it.
+function buildWavHeader(dataLength: number, sampleRate: number): Uint8Array {
+  const header = new Uint8Array(44);
+  const view = new DataView(header.buffer);
+  const writeString = (offset: number, str: string) => {
+    for (let i = 0; i < str.length; i++) header[offset + i] = str.charCodeAt(i);
+  };
+  const numChannels = 1;
+  const bitsPerSample = 16;
+  const byteRate = (sampleRate * numChannels * bitsPerSample) / 8;
+  const blockAlign = (numChannels * bitsPerSample) / 8;
+
+  writeString(0, 'RIFF');
+  view.setUint32(4, 36 + dataLength, true);
+  writeString(8, 'WAVE');
+  writeString(12, 'fmt ');
+  view.setUint32(16, 16, true);
+  view.setUint16(20, 1, true);
+  view.setUint16(22, numChannels, true);
+  view.setUint32(24, sampleRate, true);
+  view.setUint32(28, byteRate, true);
+  view.setUint16(32, blockAlign, true);
+  view.setUint16(34, bitsPerSample, true);
+  writeString(36, 'data');
+  view.setUint32(40, dataLength, true);
+
+  return header;
+}
+
+let currentTtsPlayer: AudioPlayer | null = null;
+
+async function speakWithGeminiTts(text: string, voiceName: string): Promise<void> {
+  const result = await synthesizeSpeech(text, voiceName);
+  if (!result) throw new Error('Gemini TTS unavailable (simulation mode)');
+
+  const pcmBytes = base64ToUint8Array(result.base64Pcm);
+  const header = buildWavHeader(pcmBytes.length, result.sampleRate);
+  const wavBytes = new Uint8Array(header.length + pcmBytes.length);
+  wavBytes.set(header, 0);
+  wavBytes.set(pcmBytes, header.length);
+  const wavBase64 = uint8ArrayToBase64(wavBytes);
+
+  const fileUri = `${FileSystem.cacheDirectory || ''}aira-tts-${Date.now()}.wav`;
+  await FileSystem.writeAsStringAsync(fileUri, wavBase64, { encoding: FileSystem.EncodingType.Base64 });
+
+  if (currentTtsPlayer) {
+    try { currentTtsPlayer.remove(); } catch { /* already released */ }
+    currentTtsPlayer = null;
+  }
+
+  return new Promise((resolve, reject) => {
+    try {
+      const player = createAudioPlayer(fileUri);
+      currentTtsPlayer = player;
+
+      const subscription = player.addListener('playbackStatusUpdate', (status: any) => {
+        if (status.didJustFinish) {
+          subscription.remove();
+          player.remove();
+          if (currentTtsPlayer === player) currentTtsPlayer = null;
+          FileSystem.deleteAsync(fileUri, { idempotent: true }).catch(() => {});
+          resolve();
+        }
+      });
+
+      player.play();
+    } catch (error) {
+      reject(error);
+    }
+  });
+}
 
 let cachedVoicesPromise: Promise<Speech.Voice[]> | null = null;
 
@@ -104,26 +228,34 @@ export async function speakCompanionText(text: string, language: Language): Prom
   await Speech.stop();
   await configureVoicePlaybackAudioMode();
 
-  let pitch = 1.0;
-  let rate = 0.85; // Default slightly slower rate for senior comprehension
-
+  let persona = 'warm';
   try {
     const elder = await getElder('elder-susan');
-    if (elder && elder.persona) {
-      const persona = elder.persona.toLowerCase();
-      if (persona === 'warm') {
-        pitch = 0.95;
-        rate = 0.85;
-      } else if (persona === 'patient') {
-        pitch = 1.0;
-        rate = 0.75;
-      } else if (persona === 'friendly') {
-        pitch = 1.05;
-        rate = 0.9;
-      }
-    }
+    if (elder?.persona) persona = elder.persona.toLowerCase();
   } catch (error) {
     console.warn('Failed to load elder persona for voice adjustments:', error);
+  }
+
+  try {
+    const voiceName = PERSONA_VOICE_MAP[persona] || PERSONA_VOICE_MAP.warm;
+    await speakWithGeminiTts(text, voiceName);
+    return;
+  } catch (error) {
+    console.warn('Gemini TTS unavailable, falling back to device speech:', error);
+  }
+
+  // Fallback: on-device TTS (also used when Gemini simulation mode is on).
+  let pitch = 1.0;
+  let rate = 0.85; // Default slightly slower rate for senior comprehension
+  if (persona === 'warm') {
+    pitch = 0.95;
+    rate = 0.85;
+  } else if (persona === 'patient') {
+    pitch = 1.0;
+    rate = 0.75;
+  } else if (persona === 'friendly') {
+    pitch = 1.05;
+    rate = 0.9;
   }
 
   const voice = await resolveCompanionVoice(language);

@@ -1,12 +1,18 @@
 // Supabase Edge Function: proxies Gemini API calls so the API key never
 // ships in the client bundle (AD-2). The client sends the exact Gemini
-// request body it would have sent directly; this function just attaches
-// the secret key server-side and forwards the response unchanged.
+// request body it would have sent directly (optionally with a top-level
+// `model` field to target a non-default model, e.g. for TTS); this function
+// strips that field, attaches the secret key server-side, and forwards the
+// response unchanged.
 //
 // Deploy: supabase functions deploy gemini-proxy
 // Secret: supabase secrets set GEMINI_API_KEY=<key>
 
-const GEMINI_MODEL_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent';
+const DEFAULT_MODEL = 'gemini-2.5-flash';
+
+function modelUrl(model: string): string {
+  return `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
+}
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -27,9 +33,9 @@ Deno.serve(async (req: Request) => {
   }
 
   try {
-    const requestBody = await req.json();
+    const { model, ...requestBody } = await req.json();
 
-    const geminiResponse = await fetch(`${GEMINI_MODEL_URL}?key=${apiKey}`, {
+    const geminiResponse = await fetch(`${modelUrl(model || DEFAULT_MODEL)}?key=${apiKey}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(requestBody),

@@ -63,9 +63,29 @@ and server-side Gemini proxy are all done and verified end-to-end.
   native/fallback), not a bug. Removed genuinely dead "mock" fallback code
   in `hooks/useSpeechToText.ts` (`startListening`/`stopListening`'s `else`
   branches could never actually fire given how the caller gates on
-  `isSupported`). Still needs a live on-device test via Expo Go to confirm
-  the record -> transcribe -> reply round trip actually works end to end.
-- [x] TTS — `services/voice.ts` via `expo-speech`, persona-based pitch/rate.
+  `isSupported`). Verified working live via Expo Go (found and fixed two
+  real bugs along the way: a crash from the new `expo-file-system` API
+  being called with the legacy `readAsStringAsync` method — fixed by
+  importing `expo-file-system/legacy` in `app/(tabs)/index.tsx`, matching
+  `services/database.ts`'s existing pattern; and TTS audio routing
+  through the earpiece instead of the speaker after a recording session —
+  fixed in `services/voice.ts` by resetting `allowsRecording: false`
+  explicitly in `configureVoicePlaybackAudioMode` (setAudioModeAsync
+  merges with prior state) and by changing `Speech.speak`'s
+  `useApplicationAudioSession` from `false` to `true` so it reuses the
+  app's own configured audio session instead of a separate one).
+- [x] TTS — upgraded from on-device `expo-speech` to real neural TTS via
+  Gemini (`gemini-2.5-flash-preview-tts`), proxied through `gemini-proxy`
+  (extended the Edge Function to accept an optional top-level `model`
+  field so it can target non-default models). `services/voice.ts` maps
+  elder persona -> a matching prebuilt voice (warm->Sulafat,
+  friendly->Achird, patient->Vindemiatrix), wraps the headerless PCM
+  response in a WAV header (hand-rolled, no new dependency), writes it to
+  a temp file, and plays it via `expo-audio`'s `createAudioPlayer`. Falls
+  back to the original on-device `expo-speech` path if Gemini TTS fails
+  or `EXPO_PUBLIC_GEMINI_SIMULATION=true`. Verified end-to-end via curl
+  directly against the deployed function (confirmed real PCM audio
+  returned, `audio/L16;codec=pcm;rate=24000`).
 
 ## 2. Hero Flow: Rx Photo → Confirm → Schedule
 

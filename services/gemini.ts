@@ -4,8 +4,10 @@ import { Medication, Memory, HealthLog } from './database';
 // AD-2: the Gemini API key lives only in the gemini-proxy Edge Function's
 // secrets — the client never sees it. This just forwards the request body
 // Gemini expects and gets back Gemini's raw response (or an embedded error).
-async function callGemini(requestBody: object): Promise<any> {
-  const { data, error } = await supabase.functions.invoke('gemini-proxy', { body: requestBody });
+async function callGemini(requestBody: object, model?: string): Promise<any> {
+  const { data, error } = await supabase.functions.invoke('gemini-proxy', {
+    body: model ? { model, ...requestBody } : requestBody,
+  });
   if (error) throw error;
   if (data?.error) throw new Error(`Gemini API error: ${data.error.code ?? ''} ${data.error.message ?? JSON.stringify(data.error)}`);
   return data;
@@ -14,6 +16,36 @@ async function callGemini(requestBody: object): Promise<any> {
 // Explicit, non-secret toggle for demoing without hitting the real API.
 function isSimulationMode(): boolean {
   return typeof process !== 'undefined' && process.env?.EXPO_PUBLIC_GEMINI_SIMULATION === 'true';
+}
+
+const TTS_MODEL = 'gemini-2.5-flash-preview-tts';
+
+/**
+ * Neural TTS via Gemini. Returns headerless 16-bit PCM audio (base64) plus
+ * its sample rate, or null in simulation mode (caller should fall back to
+ * on-device TTS in that case).
+ */
+export async function synthesizeSpeech(text: string, voiceName: string): Promise<{
+  base64Pcm: string;
+  sampleRate: number;
+} | null> {
+  if (isSimulationMode()) return null;
+
+  const result = await callGemini({
+    contents: [{ parts: [{ text }] }],
+    generationConfig: {
+      responseModalities: ['AUDIO'],
+      speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName } } },
+    },
+  }, TTS_MODEL);
+
+  const part = result.candidates?.[0]?.content?.parts?.[0]?.inlineData;
+  if (!part?.data) throw new Error('Empty audio response from Gemini TTS');
+
+  const rateMatch = /rate=(\d+)/.exec(part.mimeType || '');
+  const sampleRate = rateMatch ? parseInt(rateMatch[1], 10) : 24000;
+
+  return { base64Pcm: part.data, sampleRate };
 }
 
 /**
