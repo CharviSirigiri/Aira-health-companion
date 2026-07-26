@@ -217,7 +217,7 @@ export default function ElderScreen() {
 
   // Handle incoming user request (from speech or simulated keyboard)
   const handleUserSpeech = async (spokenText: string) => {
-    if (!spokenText.trim()) return;
+    if (!spokenText.trim() || isAiLoading || isTranscribing) return;
 
     const userMessage = { role: 'user' as const, text: spokenText };
     const conversationHistory = [...messages, userMessage];

@@ -86,9 +86,23 @@ function buildWavHeader(dataLength: number, sampleRate: number): Uint8Array {
 
 let currentTtsPlayer: AudioPlayer | null = null;
 
-async function speakWithGeminiTts(text: string, voiceName: string): Promise<void> {
+// Monotonic token so that if two speakCompanionText calls ever overlap
+// (e.g. the mount greeting and a quick-tap question fired close together),
+// only the most recent one actually plays — older calls detect they've been
+// superseded and quietly no-op instead of talking over the new one.
+let speechToken = 0;
+
+function stopCurrentTtsPlayer(): void {
+  if (currentTtsPlayer) {
+    try { currentTtsPlayer.remove(); } catch { /* already released */ }
+    currentTtsPlayer = null;
+  }
+}
+
+async function speakWithGeminiTts(text: string, voiceName: string, token: number): Promise<void> {
   const result = await synthesizeSpeech(text, voiceName);
   if (!result) throw new Error('Gemini TTS unavailable (simulation mode)');
+  if (token !== speechToken) return; // superseded while awaiting the network call
 
   const pcmBytes = base64ToUint8Array(result.base64Pcm);
   const header = buildWavHeader(pcmBytes.length, result.sampleRate);
@@ -99,11 +113,12 @@ async function speakWithGeminiTts(text: string, voiceName: string): Promise<void
 
   const fileUri = `${FileSystem.cacheDirectory || ''}aira-tts-${Date.now()}.wav`;
   await FileSystem.writeAsStringAsync(fileUri, wavBase64, { encoding: FileSystem.EncodingType.Base64 });
-
-  if (currentTtsPlayer) {
-    try { currentTtsPlayer.remove(); } catch { /* already released */ }
-    currentTtsPlayer = null;
+  if (token !== speechToken) {
+    await FileSystem.deleteAsync(fileUri, { idempotent: true }).catch(() => {});
+    return;
   }
+
+  stopCurrentTtsPlayer();
 
   return new Promise((resolve, reject) => {
     try {
@@ -225,8 +240,15 @@ export async function configureVoiceRecordingAudioMode(): Promise<void> {
 export async function speakCompanionText(text: string, language: Language): Promise<void> {
   if (!text.trim()) return;
 
+  const myToken = ++speechToken;
+
+  // Stop whatever is currently playing/speaking immediately, so a new turn
+  // never talks over a still-finishing one.
   await Speech.stop();
+  stopCurrentTtsPlayer();
+
   await configureVoicePlaybackAudioMode();
+  if (myToken !== speechToken) return; // superseded while awaiting
 
   let persona = 'warm';
   try {
@@ -235,14 +257,17 @@ export async function speakCompanionText(text: string, language: Language): Prom
   } catch (error) {
     console.warn('Failed to load elder persona for voice adjustments:', error);
   }
+  if (myToken !== speechToken) return;
 
   try {
     const voiceName = PERSONA_VOICE_MAP[persona] || PERSONA_VOICE_MAP.warm;
-    await speakWithGeminiTts(text, voiceName);
+    await speakWithGeminiTts(text, voiceName, myToken);
     return;
   } catch (error) {
     console.warn('Gemini TTS unavailable, falling back to device speech:', error);
   }
+
+  if (myToken !== speechToken) return; // superseded during the Gemini attempt
 
   // Fallback: on-device TTS (also used when Gemini simulation mode is on).
   let pitch = 1.0;
@@ -259,6 +284,8 @@ export async function speakCompanionText(text: string, language: Language): Prom
   }
 
   const voice = await resolveCompanionVoice(language);
+  if (myToken !== speechToken) return; // superseded while resolving the voice
+
   Speech.speak(text, {
     language: getSpeechLanguageCode(language),
     pitch,
