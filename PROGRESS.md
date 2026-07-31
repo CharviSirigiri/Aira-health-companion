@@ -94,8 +94,12 @@ and server-side Gemini proxy are all done and verified end-to-end.
 - [x] App-layer confirmation gate — `services/database.ts` `addReminder`/
   `confirmMedication` throw if `!med.confirmed`.
 - [ ] DB-layer confirmation gate exercised for real (depends on Foundation).
-- [ ] Fix hardcoded placeholder image path in `app/caregiver.tsx:230`
-  (`via.placeholder.com` URL in one code path) — replace with real captured image.
+- [x] **Corrected an earlier wrong finding**: the `via.placeholder.com` URL
+  is not a stray bug — it's `handleSimulateUpload` (`app/caregiver.tsx:266`),
+  wired to a button explicitly labeled "Simulate Sample Rx"
+  (`caregiverSimulateRx`), sitting next to the real "Choose Image" button
+  (`handlePickImage`, `app/caregiver.tsx:244`) which always uses a real
+  picked photo via `expo-image-picker`. Working as intended, no fix needed.
 - [ ] **Pill appearance from authoritative source** (DC-3) — currently free-text
   typed by caregiver (`app/caregiver.tsx:633`). PRD allows hand-curated fallback
   for FYP scope; decide whether to build a small curated lookup table or keep as-is.
@@ -131,8 +135,9 @@ and server-side Gemini proxy are all done and verified end-to-end.
 
 - [~] Adherence calc, "since last visit" delta, notes/appointments —
   `app/doctor.tsx` (1018 lines). Needs real auth (see Foundation).
-- [ ] Verify "patient-reported, not medical advice" watermark is actually shown
-  in the UI (FR41) — not yet directly confirmed.
+- [x] Verify "patient-reported, not medical advice" watermark is actually shown
+  in the UI (FR41) — confirmed: `app/doctor.tsx:359` renders `t('doctorWatermark')`
+  (`services/localization.ts:78`, "PATIENT-REPORTED LOGS — NOT CLINICAL ADVICE").
 
 ## 8. Data Model Consistency
 
@@ -174,11 +179,29 @@ and server-side Gemini proxy are all done and verified end-to-end.
 
 ## 9. Testing
 
-- [ ] **No automated tests exist at all.** No `jest`/`vitest` configured in
-  `package.json`; `scratch/test-reminders.js` and `scripts/test_modules.ts` are
-  manual ad hoc scripts, not part of any test runner.
-- [ ] Priority order once a framework is added: confirmation-gate logic →
-  reminder scheduling → red-flag safety gate (safety-critical paths first).
+- [x] **Added `jest`/`jest-expo`** (`npm test` runs `jest`; preset configured
+  in `package.json`'s `"jest"` key, `"types": ["jest"]` added to
+  `tsconfig.json`). Deleted the stale `scratch/test-reminders.js` and
+  `scripts/test_modules.ts` — both hand-rolled mocks of the old local-blob
+  `loadDatabase`/`resetDatabase` shape, which no longer exists.
+- [x] Wrote tests for the safety-critical paths, in priority order:
+  - `services/__tests__/database.test.ts` — AD-3 confirmation gate
+    (`addReminder`/`confirmMedication` reject unconfirmed medications; happy
+    path generates one correctly-anchored EN/MS spoken reminder). Mocks
+    `services/supabase` with a small chainable/awaitable fake query builder
+    queued per `.from()` call, since the real client now talks to Supabase.
+  - `services/__tests__/reminders.test.ts` — `syncScheduledReminders`
+    (permission-denied short-circuit, correct daily trigger time from
+    `routine_json`, skips reminders whose medication is unconfirmed or
+    missing). Mocks `expo-notifications` and `services/database`.
+  - `services/__tests__/gemini.test.ts` — AD-9 red-flag gate fires on
+    EN/MS phrases and is case-insensitive, all without reaching
+    `supabase.functions.invoke` (i.e. never calls the model); confirms the
+    separate "call my family" distress-helper path is routed distinctly
+    from the red-flag path.
+  - All 14 tests pass (`npm test`). Symptom/mood extraction (Section 4) and
+    the OCR parse path (Section 2) are not yet covered — reasonable next
+    additions, not safety-critical.
 
 ## Explicitly Out of Scope for v1 (per PRD Section 11 — do not build unless asked)
 
