@@ -15,11 +15,11 @@ export default function TabTwoScreen() {
   return (
     <View style={styles.container}>
       <ParallaxScrollView
-        headerBackgroundColor={{ light: '#CCFBF1', dark: '#0D9488' }}
+        headerBackgroundColor={{ light: '#D3F3EA', dark: '#D3F3EA' }}
         headerImage={
           <IconSymbol
             size={310}
-            color="#0D9488"
+            color="#04967A"
             name="paperplane.fill"
             style={styles.headerImage}
           />
@@ -39,15 +39,15 @@ export default function TabTwoScreen() {
 
         <Collapsible title={t('helpVoiceCommandsTitle')}>
           <View style={styles.commandRow}>
-            <IconSymbol name="house.fill" size={16} color="#0D9488" />
+            <IconSymbol name="house.fill" size={16} color="#04967A" />
             <ThemedText style={styles.commandText}>{`"${t('helpVoiceCmd1')}"`}</ThemedText>
           </View>
           <View style={styles.commandRow}>
-            <IconSymbol name="house.fill" size={16} color="#0D9488" />
+            <IconSymbol name="house.fill" size={16} color="#04967A" />
             <ThemedText style={styles.commandText}>{`"${t('helpVoiceCmd2')}"`}</ThemedText>
           </View>
           <View style={styles.commandRow}>
-            <IconSymbol name="house.fill" size={16} color="#0D9488" />
+            <IconSymbol name="house.fill" size={16} color="#04967A" />
             <ThemedText style={styles.commandText}>{`"${t('helpVoiceCmd3')}"`}</ThemedText>
           </View>
         </Collapsible>
@@ -75,7 +75,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   headerImage: {
-    color: 'rgba(13, 148, 136, 0.15)',
+    color: 'rgba(74, 67, 104, 0.18)',
     bottom: -90,
     left: -35,
     position: 'absolute',
@@ -87,12 +87,12 @@ const styles = StyleSheet.create({
   headingText: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#0F172A',
+    color: '#122B27',
     marginTop: 8,
   },
   bodyText: {
     fontSize: 14,
-    color: '#475569',
+    color: '#7C9C97',
     lineHeight: 20,
     marginBottom: 16,
   },
@@ -101,20 +101,20 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 8,
     borderBottomWidth: 1,
-    borderBottomColor: '#F1F5F9',
+    borderBottomColor: '#D8F0E9',
     gap: 8,
   },
   commandText: {
     fontSize: 13.5,
     fontStyle: 'italic',
-    color: '#1E293B',
+    color: '#122B27',
   },
   lockItem: {
     marginBottom: 14,
   },
   lockDesc: {
     fontSize: 13,
-    color: '#64748B',
+    color: '#7C9C97',
     marginTop: 2,
     lineHeight: 18,
   },

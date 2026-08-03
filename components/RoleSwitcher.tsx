@@ -47,10 +47,10 @@ export function RoleSwitcher({ style }: RoleSwitcherProps = {}) {
     return {
       title: t('roleElderTitle'),
       icon: 'house.fill' as const,
-      bg: '#CCFBF1',
-      border: '#99F6E4',
-      iconColor: '#0D9488',
-      textColor: '#0F766E',
+      bg: '#FFFFFF',
+      border: '#D8F0E9',
+      iconColor: '#04967A',
+      textColor: '#122B27',
       badge: 'Susan (70)',
     };
   };
@@ -105,7 +105,7 @@ export function RoleSwitcher({ style }: RoleSwitcherProps = {}) {
             <View style={styles.modalHeader}>
               <View style={styles.modalHeaderRow}>
                 <View style={styles.modalIconBadge}>
-                  <IconSymbol name="person.crop.circle.badge.exclamationmark" size={20} color="#0D9488" />
+                  <IconSymbol name="person.crop.circle.badge.exclamationmark" size={20} color="#04967A" />
                 </View>
                 <View style={{ flex: 1 }}>
                   <Text style={styles.modalTitle}>{t('switchTitle')}</Text>
@@ -120,17 +120,17 @@ export function RoleSwitcher({ style }: RoleSwitcherProps = {}) {
               onPress={() => navigateToRole('elder')}
               activeOpacity={0.8}
             >
-              <View style={[styles.iconContainer, { backgroundColor: '#CCFBF1' }]}> 
-                <IconSymbol name="house.fill" size={22} color="#0D9488" />
+              <View style={[styles.iconContainer, { backgroundColor: '#D3F3EA' }]}>
+                <IconSymbol name="house.fill" size={22} color="#04967A" />
               </View>
               <View style={styles.roleInfo}>
                 <View style={styles.cardTitleRow}>
                   <Text style={styles.roleTitle}>{t('roleElderTitle')}</Text>
-                  <Text style={[styles.roleBadgeTag, { backgroundColor: '#CCFBF1', color: '#0F766E' }]}>Susan (70)</Text>
+                  <Text style={[styles.roleBadgeTag, { backgroundColor: '#D3F3EA', color: '#0B6B57' }]}>Susan (70)</Text>
                 </View>
                 <Text style={styles.roleDescription}>{t('roleElderDesc')}</Text>
               </View>
-              {isElder && <View style={[styles.activeIndicator, { backgroundColor: '#0D9488' }]} />}
+              {isElder && <View style={[styles.activeIndicator, { backgroundColor: '#04967A' }]} />}
             </TouchableOpacity>
 
             {/* Caregiver Role Card */}
@@ -249,7 +249,7 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: Radii.md,
-    backgroundColor: '#CCFBF1',
+    backgroundColor: '#D3F3EA',
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -276,8 +276,8 @@ const styles = StyleSheet.create({
     position: 'relative',
   },
   activeElderCard: {
-    borderColor: '#0D9488',
-    backgroundColor: '#F0FDFA',
+    borderColor: '#04967A',
+    backgroundColor: '#EAF9F5',
   },
   activeCaregiverCard: {
     borderColor: '#D01C8B',

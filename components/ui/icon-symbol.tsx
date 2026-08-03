@@ -22,6 +22,13 @@ const MAPPING = {
   'chevron.down': 'keyboard-arrow-down',
   'person.crop.circle.badge.exclamationmark': 'switch-account',
   'person.fill': 'person',
+  'pills.fill': 'local-pharmacy',
+  'stethoscope': 'local-hospital',
+  'exclamationmark.triangle.fill': 'warning',
+  'xmark': 'close',
+  'speaker.wave.2.fill': 'volume-up',
+  'checkmark.circle.fill': 'check-circle',
+  'globe': 'language',
 } as IconMapping;
 
 /**

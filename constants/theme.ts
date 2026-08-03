@@ -1,62 +1,60 @@
 import { Platform } from 'react-native';
 
-const primaryTeal = '#0E9F6E';
-const primaryTealDark = '#10B981';
 const caregiverIndigo = '#4F46E5';
 
+// Aira brand: "Tropic Teal" — mint-white canvas with a vivid emerald-teal pop
+// accent, chosen for being brighter/more engaging than the original near-black
+// ink brand while staying legible for aging eyes (light ground, dark text).
+// This is a fixed brand identity (not a light/dark system toggle), so `light`
+// and `dark` intentionally share the same palette — screens built on
+// ThemedView/ThemedText (explore, modal) render consistently either way.
+const brandLight = {
+  text: '#122B27',
+  textMuted: '#7C9C97',
+  background: '#F1FBF8',
+  card: '#FFFFFF',
+  border: '#D8F0E9',
+  tint: '#04967A',
+  icon: '#04967A',
+  tabIconDefault: '#7C9C97',
+  tabIconSelected: '#04967A',
+  success: '#0B6B57',
+  successBg: '#D3F3EA',
+  warning: '#B5623E',
+  warningBg: '#FDE9DD',
+  danger: '#E63946',
+  dangerBg: '#FCE1E3',
+  info: '#146B7A',
+  infoBg: '#D8F0F5',
+};
+
 export const Colors = {
-  light: {
-    text: '#0F172A',
-    textMuted: '#64748B',
-    background: '#F8FAFC',
-    card: '#FFFFFF',
-    border: '#E2E8F0',
-    tint: primaryTeal,
-    icon: '#64748B',
-    tabIconDefault: '#94A3B8',
-    tabIconSelected: primaryTeal,
-    success: '#10B981',
-    successBg: '#ECFDF5',
-    warning: '#F59E0B',
-    warningBg: '#FFFBEB',
-    danger: '#EF4444',
-    dangerBg: '#FEF2F2',
-    info: '#3B82F6',
-    infoBg: '#EFF6FF',
-  },
-  dark: {
-    text: '#F8FAFC',
-    textMuted: '#94A3B8',
-    background: '#0F172A',
-    card: '#1E293B',
-    border: '#334155',
-    tint: primaryTealDark,
-    icon: '#94A3B8',
-    tabIconDefault: '#64748B',
-    tabIconSelected: primaryTealDark,
-    success: '#34D399',
-    successBg: '#064E3B',
-    warning: '#FBBF24',
-    warningBg: '#78350F',
-    danger: '#F87171',
-    dangerBg: '#7F1D1D',
-    info: '#60A5FA',
-    infoBg: '#1E3A8A',
-  },
+  light: brandLight,
+  dark: brandLight,
 };
 
 export const RoleThemes = {
   elder: {
-    primary: '#0D9488', // Safety Teal
-    primaryDark: '#0F766E',
-    primaryLight: '#CCFBF1',
-    bg: '#F8FAFC', // Off-white canvas
-    card: '#FFFFFF', // Pure White containers
-    text: '#0F172A', // Deep Navy text (High Contrast)
-    textMuted: '#475569',
-    accent: '#EA580C', // Warm Coral/Orange Action Alert Accent
-    voicePulse: '#0D9488',
-    border: '#E2E8F0',
+    bg: '#F1FBF8', // Mint-white canvas
+    card: '#FFFFFF', // Neutral white card
+    cardBorder: '#D8F0E9',
+    text: '#122B27', // High-contrast dark-teal text
+    textMuted: '#7C9C97',
+    ink: '#04967A', // Vivid emerald-teal pop accent (buttons, nav, primary icons)
+    inkText: '#FFFFFF', // Text/icon color on ink surfaces
+    sage: '#D3F3EA',
+    sageDeep: '#0B6B57',
+    lavender: '#D7E3F5',
+    lavenderDeep: '#3A5A78',
+    sky: '#D8F0F5',
+    skyDeep: '#146B7A',
+    peach: '#FDE9DD',
+    peachDeep: '#B5623E',
+    danger: '#E63946', // Bright coral-red, kept distinct from pastels for safety-critical alerts
+    dangerBg: '#FCE1E3',
+    dangerDeep: '#A11F2B',
+    voicePulse: '#04967A',
+    border: '#D8F0E9',
   },
   caregiver: {
     primary: '#D01C8B', // Vibrant Hot Pink
@@ -112,11 +110,24 @@ export const Shadows = {
   }),
 };
 
+// Soft "lifted" shadow for floating elements (nav bar, teal CTA buttons, mic button).
+export const GlowShadow = Platform.select({
+  ios: {
+    shadowColor: '#04967A',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.22,
+    shadowRadius: 20,
+  },
+  android: { elevation: 8 },
+  web: { boxShadow: '0 10px 28px rgba(4, 150, 122, 0.22)' },
+});
+
 export const Radii = {
   sm: 8,
   md: 12,
   lg: 20,
   xl: 28,
+  xxl: 32,
   full: 9999,
 };
 

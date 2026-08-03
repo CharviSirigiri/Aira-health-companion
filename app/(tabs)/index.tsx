@@ -4,7 +4,9 @@ import { useSpeechToText } from '@/hooks/useSpeechToText';
 import { useVoiceRecorder } from '@/hooks/useVoiceRecorder';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { RoleSwitcher } from '@/components/RoleSwitcher';
-import { Shadows, Radii } from '@/constants/theme';
+import { Radii, RoleThemes, GlowShadow } from '@/constants/theme';
+
+const elder = RoleThemes.elder;
 import { speakCompanionText } from '@/services/voice';
 import { useTranslation } from '@/services/localization';
 import * as FileSystem from 'expo-file-system/legacy';
@@ -344,14 +346,14 @@ export default function ElderScreen() {
       <View style={styles.header}>
         <View style={styles.branding}>
           <View style={styles.logoIcon}>
-            <IconSymbol name="house.fill" size={20} color="#0D9488" />
+            <IconSymbol name="house.fill" size={20} color={elder.ink} />
           </View>
           <Text style={styles.headerTitle}>{t('appName')}</Text>
         </View>
 
         <View style={styles.headerActions}>
-          <TouchableOpacity style={styles.langToggle} onPress={toggleLanguage}>
-            <IconSymbol name="paperplane.fill" size={14} color="#0D9488" />
+          <TouchableOpacity style={styles.langToggle} onPress={toggleLanguage} activeOpacity={0.8}>
+            <IconSymbol name="globe" size={14} color={elder.ink} />
             <Text style={styles.langToggleText}>
               {language === 'ms' ? t('langToggleMs') : t('langToggleEn')}
             </Text>
@@ -366,29 +368,29 @@ export default function ElderScreen() {
         {activeReminderToShow && (
           <View style={styles.reminderBanner}>
             <View style={styles.reminderHeader}>
-              <IconSymbol name="person.crop.circle.badge.exclamationmark" size={20} color="#B91C1C" />
+              <IconSymbol name="exclamationmark.triangle.fill" size={20} color={elder.dangerDeep} />
               <Text style={styles.reminderTitle}>
                 {t('elderReminderTitle')}
               </Text>
             </View>
             <Text style={styles.reminderBody}>{activeReminderToShow.spoken_text}</Text>
-            
+
             <View style={styles.reminderActions}>
               <TouchableOpacity
                 style={styles.confirmIntakeBtn}
                 onPress={() => handleIntakeConfirm(activeReminderToShow)}
               >
-                <IconSymbol name="house.fill" size={18} color="#fff" />
+                <IconSymbol name="checkmark.circle.fill" size={18} color="#fff" />
                 <Text style={styles.confirmIntakeText}>
                   {t('elderReminderButton')}
                 </Text>
               </TouchableOpacity>
-              
+
               <TouchableOpacity
                 style={styles.speakReminderBtn}
                 onPress={() => void speakOutput(activeReminderToShow.spoken_text)}
               >
-                <IconSymbol name="person.crop.circle.badge.exclamationmark" size={18} color="#B91C1C" />
+                <IconSymbol name="speaker.wave.2.fill" size={18} color="#FCA5A5" />
               </TouchableOpacity>
             </View>
           </View>
@@ -400,7 +402,7 @@ export default function ElderScreen() {
             <View style={styles.companionAvatarContainer}>
               <Animated.View style={[styles.companionAvatarRing, { transform: [{ scale: pulseAnim }] }]} />
               <View style={styles.companionAvatarCore}>
-                <IconSymbol name="house.fill" size={18} color="#FFFFFF" />
+                <IconSymbol name="mic.fill" size={16} color="#FFFFFF" />
               </View>
             </View>
             <View style={styles.companionMeta}>
@@ -453,37 +455,43 @@ export default function ElderScreen() {
           <View style={styles.suggestionsGrid}>
             <TouchableOpacity
               style={styles.suggestionBubble}
+              activeOpacity={0.8}
               onPress={() => {
                 stt.stopListening();
                 handleUserSpeech(language === 'ms' ? 'Adakah saya sudah makan ubat Metformin hari ini?' : 'Did I take my Metformin today?');
               }}
             >
+              <IconSymbol name="pills.fill" size={14} color={elder.ink} />
               <Text style={styles.suggestionText}>
-                💊 {language === 'ms' ? 'Sudah makan ubat?' : 'Did I take meds?'}
+                {language === 'ms' ? 'Sudah makan ubat?' : 'Did I take meds?'}
               </Text>
             </TouchableOpacity>
 
             <TouchableOpacity
               style={styles.suggestionBubble}
+              activeOpacity={0.8}
               onPress={() => {
                 stt.stopListening();
                 handleUserSpeech(language === 'ms' ? 'Apa pesanan doktor Ramesh?' : 'What did Doctor Ramesh say?');
               }}
             >
+              <IconSymbol name="stethoscope" size={14} color={elder.ink} />
               <Text style={styles.suggestionText}>
-                🩺 {language === 'ms' ? 'Pesanan doktor?' : 'Doctor notes'}
+                {language === 'ms' ? 'Pesanan doktor?' : 'Doctor notes'}
               </Text>
             </TouchableOpacity>
 
             <TouchableOpacity
-              style={[styles.suggestionBubble, { borderColor: '#FCA5A5', backgroundColor: '#FEF2F2' }]}
+              style={[styles.suggestionBubble, styles.suggestionBubbleUrgent]}
+              activeOpacity={0.8}
               onPress={() => {
                 stt.stopListening();
                 handleUserSpeech(language === 'ms' ? 'Tolong hubungi keluarga saya sekarang!' : 'Please contact my family now!');
               }}
             >
-              <Text style={[styles.suggestionText, { color: '#991B1B' }]}>
-                🚨 {language === 'ms' ? 'Hubungi keluarga!' : 'Contact family'}
+              <IconSymbol name="exclamationmark.triangle.fill" size={14} color="#FCA5A5" />
+              <Text style={[styles.suggestionText, styles.suggestionTextUrgent]}>
+                {language === 'ms' ? 'Hubungi keluarga!' : 'Contact family'}
               </Text>
             </TouchableOpacity>
           </View>
@@ -539,38 +547,35 @@ export default function ElderScreen() {
 const styles = StyleSheet.create({
   mainContainer: {
     flex: 1,
-    backgroundColor: '#F8FAFC', // Off-white canvas (eliminates eye fatigue for older eyes)
+    backgroundColor: elder.bg, // Warm off-white canvas
   },
   header: {
     paddingTop: Platform.OS === 'ios' ? 54 : 44,
     paddingHorizontal: 24,
     paddingBottom: 18,
-    backgroundColor: '#FFFFFF', // Pure White header container
-    borderBottomWidth: 1.5,
-    borderBottomColor: '#E2E8F0',
+    backgroundColor: elder.bg,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    ...Shadows.sm,
   },
   branding: {
     flexDirection: 'row',
     alignItems: 'center',
   },
   logoIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: Radii.md,
-    backgroundColor: '#CCFBF1',
+    width: 44,
+    height: 44,
+    borderRadius: Radii.lg,
+    backgroundColor: elder.sage,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
   },
   headerTitle: {
-    fontSize: 22,
+    fontSize: 24,
     fontWeight: '800',
-    color: '#0F172A', // Deep Navy text (High Contrast)
-    letterSpacing: -0.3,
+    color: elder.text,
+    letterSpacing: -0.4,
   },
   headerActions: {
     flexDirection: 'row',
@@ -586,17 +591,17 @@ const styles = StyleSheet.create({
   langToggle: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#CCFBF1',
+    backgroundColor: elder.card,
     paddingVertical: 8,
     paddingHorizontal: 14,
     borderRadius: Radii.full,
     borderWidth: 1.5,
-    borderColor: '#99F6E4',
+    borderColor: elder.cardBorder,
   },
   langToggleText: {
     fontSize: 13,
     fontWeight: '800',
-    color: '#0D9488', // Safety Teal
+    color: elder.ink,
     marginLeft: 6,
   },
   scrollArea: {
@@ -607,13 +612,12 @@ const styles = StyleSheet.create({
     paddingBottom: 24,
   },
   reminderBanner: {
-    backgroundColor: '#FEF2F2',
+    backgroundColor: elder.dangerBg,
     borderWidth: 1.5,
-    borderColor: '#FCA5A5',
-    borderRadius: Radii.md,
-    padding: 14,
-    marginBottom: 14,
-    ...Shadows.sm,
+    borderColor: 'rgba(230, 57, 70, 0.35)',
+    borderRadius: Radii.xl,
+    padding: 16,
+    marginBottom: 16,
   },
   reminderHeader: {
     flexDirection: 'row',
@@ -623,12 +627,12 @@ const styles = StyleSheet.create({
   reminderTitle: {
     fontSize: 16,
     fontWeight: '800',
-    color: '#991B1B',
+    color: elder.dangerDeep,
     marginLeft: 8,
   },
   reminderBody: {
     fontSize: 14,
-    color: '#7F1D1D',
+    color: elder.dangerDeep,
     lineHeight: 20,
     fontWeight: '600',
     marginBottom: 12,
@@ -640,13 +644,12 @@ const styles = StyleSheet.create({
   },
   confirmIntakeBtn: {
     flex: 1,
-    backgroundColor: '#EA580C', // Warm Coral/Orange Action Alert Accent
-    borderRadius: Radii.md,
+    backgroundColor: elder.danger,
+    borderRadius: Radii.full,
     paddingVertical: 12,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    ...Shadows.sm,
   },
   confirmIntakeText: {
     color: '#FFFFFF',
@@ -657,10 +660,10 @@ const styles = StyleSheet.create({
   speakReminderBtn: {
     width: 44,
     height: 44,
-    borderRadius: Radii.md,
-    backgroundColor: '#FEE2E2',
+    borderRadius: Radii.full,
+    backgroundColor: '#FFFFFF',
     borderWidth: 1.5,
-    borderColor: '#FCA5A5',
+    borderColor: 'rgba(230, 57, 70, 0.35)',
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -670,32 +673,31 @@ const styles = StyleSheet.create({
   companionHeaderRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 10,
+    marginBottom: 12,
   },
   companionAvatarContainer: {
     position: 'relative',
-    width: 42,
-    height: 42,
+    width: 44,
+    height: 44,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 10,
+    marginRight: 12,
   },
   companionAvatarRing: {
     position: 'absolute',
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#CCFBF1',
-    opacity: 0.7,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: elder.lavender,
+    opacity: 0.8,
   },
   companionAvatarCore: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    backgroundColor: '#0D9488', // Safety Teal Accent
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: elder.ink,
     justifyContent: 'center',
     alignItems: 'center',
-    ...Shadows.sm,
   },
   companionMeta: {
     flex: 1,
@@ -703,46 +705,44 @@ const styles = StyleSheet.create({
   companionLabel: {
     fontSize: 13,
     fontWeight: '800',
-    color: '#0D9488',
+    color: elder.text,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
   activeStatusPill: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#CCFBF1',
-    paddingVertical: 2,
-    paddingHorizontal: 8,
+    backgroundColor: elder.sage,
+    paddingVertical: 3,
+    paddingHorizontal: 9,
     borderRadius: Radii.full,
     alignSelf: 'flex-start',
-    marginTop: 2,
-    borderWidth: 1,
-    borderColor: '#99F6E4',
+    marginTop: 4,
   },
   activeStatusDot: {
     width: 6,
     height: 6,
     borderRadius: 3,
-    backgroundColor: '#0D9488',
-    marginRight: 4,
+    backgroundColor: elder.sageDeep,
+    marginRight: 5,
   },
   activeStatusText: {
     fontSize: 11,
     fontWeight: '700',
-    color: '#0F766E',
+    color: elder.sageDeep,
   },
   replyBox: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: Radii.lg,
-    padding: 16,
+    backgroundColor: elder.card,
+    borderRadius: Radii.xxl,
+    padding: 20,
     borderWidth: 1.5,
-    borderColor: '#E2E8F0',
-    ...Shadows.sm,
+    borderColor: elder.cardBorder,
+    ...GlowShadow,
   },
   replyText: {
-    fontSize: 16,
-    color: '#0F172A', // Deep Navy
-    lineHeight: 24,
+    fontSize: 17,
+    color: elder.text,
+    lineHeight: 25,
     fontWeight: '600',
   },
   loadingRow: {
@@ -754,53 +754,50 @@ const styles = StyleSheet.create({
     width: 6,
     height: 6,
     borderRadius: 3,
-    backgroundColor: '#0D9488',
+    backgroundColor: elder.ink,
     marginRight: 6,
   },
   loadingPulse: {
     fontSize: 13,
-    color: '#0D9488',
+    color: elder.textMuted,
     fontWeight: '700',
     fontStyle: 'italic',
   },
   transcriptContainer: {
-    backgroundColor: '#EFF6FF',
-    borderWidth: 1.5,
-    borderColor: '#BFDBFE',
-    borderRadius: Radii.md,
-    padding: 12,
-    marginBottom: 14,
+    backgroundColor: elder.sky,
+    borderRadius: Radii.lg,
+    padding: 14,
+    marginBottom: 16,
   },
   transcriptHeading: {
     fontSize: 11,
     fontWeight: '800',
-    color: '#1D4ED8',
+    color: elder.skyDeep,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
     marginBottom: 4,
   },
   transcriptText: {
     fontSize: 14,
-    color: '#1E40AF',
+    color: elder.skyDeep,
     fontWeight: '600',
     fontStyle: 'italic',
   },
   suggestionsContainer: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: Radii.lg,
-    padding: 14,
+    backgroundColor: elder.card,
+    borderRadius: Radii.xxl,
+    padding: 16,
     borderWidth: 1.5,
-    borderColor: '#E2E8F0',
-    marginBottom: 14,
-    ...Shadows.sm,
+    borderColor: elder.cardBorder,
+    marginBottom: 16,
   },
   suggestionsTitle: {
     fontSize: 12,
     fontWeight: '800',
-    color: '#0D9488',
+    color: elder.textMuted,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
-    marginBottom: 8,
+    marginBottom: 10,
   },
   suggestionsGrid: {
     flexDirection: 'row',
@@ -808,55 +805,59 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   suggestionBubble: {
-    backgroundColor: '#CCFBF1',
-    borderWidth: 1,
-    borderColor: '#99F6E4',
-    borderRadius: Radii.full,
-    paddingVertical: 6,
-    paddingHorizontal: 12,
+    flexDirection: 'row',
     alignItems: 'center',
+    gap: 6,
+    backgroundColor: elder.lavender,
+    borderRadius: Radii.full,
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+  },
+  suggestionBubbleUrgent: {
+    backgroundColor: elder.dangerBg,
   },
   suggestionText: {
     fontSize: 13,
-    color: '#0F766E',
+    color: elder.lavenderDeep,
     fontWeight: '700',
   },
+  suggestionTextUrgent: {
+    color: elder.dangerDeep,
+  },
   controlPad: {
-    position: 'relative',
+    marginHorizontal: 16,
+    marginBottom: Platform.OS === 'ios' ? 14 : 12,
     backgroundColor: '#FFFFFF',
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    paddingTop: 12,
+    borderRadius: Radii.xxl,
+    paddingTop: 14,
     paddingHorizontal: 16,
-    paddingBottom: Platform.OS === 'ios' ? 24 : 14,
+    paddingBottom: 14,
     alignItems: 'center',
-    borderTopWidth: 1.5,
-    borderColor: '#E2E8F0',
-    ...Shadows.md,
+    ...GlowShadow,
   },
   simInputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F8FAFC',
+    backgroundColor: elder.bg,
     borderRadius: Radii.full,
     paddingHorizontal: 14,
-    height: 42,
+    height: 44,
     width: '100%',
-    marginBottom: 10,
+    marginBottom: 12,
     borderWidth: 1.5,
-    borderColor: '#CBD5E1',
+    borderColor: elder.cardBorder,
   },
   simTextInput: {
     flex: 1,
     fontSize: 14,
-    color: '#0F172A',
+    color: elder.text,
     fontWeight: '600',
   },
   sendTextBtn: {
     width: 32,
     height: 32,
     borderRadius: Radii.full,
-    backgroundColor: '#0D9488',
+    backgroundColor: elder.ink,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -864,35 +865,31 @@ const styles = StyleSheet.create({
     position: 'relative',
     justifyContent: 'center',
     alignItems: 'center',
-    width: 60,
-    height: 60,
+    width: 64,
+    height: 64,
   },
   pulseCircle: {
     position: 'absolute',
+    width: 62,
+    height: 62,
+    borderRadius: 31,
+    backgroundColor: 'rgba(21, 23, 26, 0.10)',
+  },
+  micBtn: {
     width: 56,
     height: 56,
     borderRadius: 28,
-    backgroundColor: 'rgba(13, 148, 136, 0.22)',
-  },
-  micBtn: {
-    width: 54,
-    height: 54,
-    borderRadius: 27,
-    backgroundColor: '#0D9488', // Safety Teal
+    backgroundColor: elder.ink,
     justifyContent: 'center',
     alignItems: 'center',
-    borderWidth: 2.5,
-    borderColor: '#CCFBF1',
-    ...Shadows.sm,
   },
   micBtnActive: {
-    backgroundColor: '#EA580C', // Warm Coral/Orange
-    borderColor: '#FFEDD5',
+    backgroundColor: elder.danger,
   },
   micInstruction: {
     fontSize: 12,
-    color: '#475569',
-    marginTop: 6,
+    color: elder.textMuted,
+    marginTop: 8,
     fontWeight: '700',
     letterSpacing: 0.2,
   },
